@@ -1,0 +1,9 @@
+This folder contains third-party software used by the optional "bypass mode" (Windows only).
+
+- winws.exe, cygwin1.dll: zapret by bol-van, MIT License (see LICENSE.zapret.txt).
+  https://github.com/bol-van/zapret   (binaries from https://github.com/bol-van/zapret-win-bundle)
+- WinDivert.dll, WinDivert64.sys: WinDivert by basil00, dual-licensed LGPLv3 / GPLv2 (see LICENSE.WinDivert.txt).
+  https://github.com/basil00/WinDivert
+- cygwin1.dll is part of Cygwin (LGPLv3 with linking exception). https://www.cygwin.com/
+
+The files are unmodified copies of the upstream release binaries. Replace them with your own builds at any time.

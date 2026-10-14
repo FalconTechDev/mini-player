@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs, quote
 
 import webview
+import bypass
 
 from plat import P
 
@@ -62,7 +63,7 @@ def apply_frame(win):
 
 TT_DEFAULTS = {"hide_desc": False, "hide_author": False, "hide_ads": True, "remember_window": True,
                "no_frame": True, "fill_crop": False, "fit_window": False, "hide_titlebar": True, "auto_scroll": True}
-UI_DEFAULTS = {"layout": "tabs", "default_search": False, "engine": "google", "autohide_bar": True,
+UI_DEFAULTS = {"bypass": False, "layout": "tabs", "default_search": False, "engine": "google", "autohide_bar": True,
                "opacity": 1.0, "op_frame": 1.0, "op_video": 1.0, "auto_paste": False}
 TT_WINDOWS = []
 CFG_LOCK = threading.RLock()
@@ -1088,7 +1089,48 @@ class SiteApi:
                 pass
 
 
+BYPASS_OBJ = []
+
+
+def get_bypass():
+    if not BYPASS_OBJ:
+        def sget(k):
+            return load()["settings"]["ui"].get("bypass_" + k)
+
+        def sset(k, v):
+            with CFG_LOCK:
+                d = load()
+                d["settings"]["ui"]["bypass_" + k] = v
+                save(d)
+        BYPASS_OBJ.append(bypass.Bypass(DATA_DIR, sget, sset))
+    return BYPASS_OBJ[0]
+
+
+def restart_app():
+    """Перезапускает приложение (нужно, чтобы окна браузера подхватили или сбросили прокси режима обхода)."""
+    import subprocess
+    if BYPASS_OBJ:
+        BYPASS_OBJ[0].stop()
+    args = [sys.executable] + (sys.argv[1:] if getattr(sys, "frozen", False) else sys.argv)
+    subprocess.Popen(args, env=dict(os.environ, MP_RESTART="1"))
+    os._exit(0)
+
+
 class MainApi:
+    def bypass_info(self):
+        info = get_bypass().info() if bypass.supported() else {"supported": False}
+        info["on"] = bool(load()["settings"]["ui"].get("bypass"))
+        return info
+
+    def bypass_set(self, on):
+        update_ui("bypass", bool(on))
+        threading.Timer(0.4, restart_app).start()
+        return True
+
+    def bypass_retest(self):
+        get_bypass().retest()
+        return True
+
     def state(self):
         return load()
 
@@ -1345,13 +1387,26 @@ class MainApi:
 HTML = open(resource("ui.html"), encoding="utf-8").read()
 
 if __name__ == "__main__":
+    if bypass.HELPER_FLAG in sys.argv:                       # копия с правами администратора: управляет winws
+        i = sys.argv.index(bypass.HELPER_FLAG)
+        bypass.helper_main(int(sys.argv[i + 1]), sys.argv[i + 2])
+        raise SystemExit
     P.prepare_env()
     import socket
     _lock = socket.socket()
-    try:
-        _lock.bind(("127.0.0.1", 47653))
-    except OSError:
-        raise SystemExit  # уже запущено
+    for _try in range(20 if os.environ.get("MP_RESTART") else 1):       # после перезапуска ждём, пока старое окно закроется
+        try:
+            _lock.bind(("127.0.0.1", 47653))
+            break
+        except OSError:
+            if _try == 19 or not os.environ.get("MP_RESTART"):
+                raise SystemExit  # уже запущено
+            time.sleep(0.5)
+    if bypass.supported() and load()["settings"]["ui"].get("bypass"):
+        BYPASS = get_bypass()
+        os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] += " " + BYPASS.browser_args()
+        BYPASS.install_python_proxy()
+        BYPASS.launch()
     main = webview.create_window("Mini Player", html=HTML, js_api=MainApi(), min_size=(640, 480),
                                  **restore_geometry("main", 760, 620))
     track_geometry(main, "main")
@@ -1374,6 +1429,8 @@ if __name__ == "__main__":
             main_win.destroy()
 
     webview.start(watchdog, **P.start_kwargs(os.path.join(DATA_DIR, "web")))
+    if BYPASS_OBJ:
+        BYPASS_OBJ[0].stop()
     tries = int(os.environ.get("MP_TRY", "0"))
     if failed and tries < 8:
         import subprocess

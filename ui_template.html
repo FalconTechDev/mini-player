@@ -308,6 +308,19 @@ function favScreen(){
  const f=S.history.filter(h=>h.fav);
  return `<div class="plate flat" style="background:#ffc83d">Избранное</div><div class="body" style="padding-top:16px">${f.length?cards(f,true):'<div class="empty">Пока пусто. Нажми «☆» у любого видео.</div>'}</div>`;
 }
+let BP=null;
+const BPS={off:'',starting:'Запускаю…',testing:'Подбираю стратегию…',on:'Работает',unneeded:'Не нужен',failed:'Не удалось',denied:'Нет прав'};
+function bypassCard(){
+ if(!BP||!BP.supported)return '';
+ const busy=BP.state==='starting'||BP.state==='testing';
+ const st=BP.on?(BP.msg||BPS[BP.state]||''):'Выключен. Включение перезапустит приложение.';
+ return `<div class="scard p14" style="--ac:#ffc83d"><div class="sh" style="color:#ffc83d">РЕЖИМ ОБХОДА БЛОКИРОВОК</div>
+  <div class="srow" data-act="bypass" style="padding-top:0"><div class="x"><b>Обход блокировок только в этом приложении</b><small>Помогает открыть YouTube, TikTok, Twitch и Netflix там, где они замедлены или заблокированы. Остальные программы и браузеры не затрагиваются. Основан на zapret (bol-van, MIT) и WinDivert.</small></div>${tg(!!BP.on,'#ffc83d')}</div>
+  ${BP.on?`<div class="srow" style="cursor:default"><div class="x"><b>Состояние</b><small>${esc(st)}</small></div>${busy?'':'<div class="chip act" data-act="bprt">Подобрать заново</div>'}</div>`:`<div class="note" style="margin-top:6px">${esc(st)}</div>`}
+  <div class="note">Нужны права администратора (запрос Windows при запуске). Если обход не помогает, возможно, дело в блокировке по IP или DNS: такое режим не обходит.</div></div>`;
+}
+async function bpRefresh(){if(!api)return;try{const b=await api.bypass_info();const ch=!BP||b.state!==BP.state||b.msg!==BP.msg||b.on!==BP.on;BP=b;if(ch&&scr==='set')render()}catch(e){}}
+setInterval(()=>{if(scr==='set')bpRefresh()},1500);
 function setScreen(){
  const ui=S.settings.ui,L=ui.layout||'tabs',tt=ttFlags(),pre=curPre(),st=S.settings;
  const opt=(v,t,d,mk)=>`<div class="opt ${L===v?'on':''}" data-act="layout" data-v="${v}"><div class="mk ${v==='tabs'?'c':''}"><i style="${v==='tabs'?'height:12px;border-bottom-width:3px':'width:14px;border-right-width:3px'}"></i></div><b>${t}</b><small>${d}</small></div>`;
@@ -319,6 +332,7 @@ function setScreen(){
   ${row('top','on_top','Поверх всех окон','Окно плеера остаётся над остальными',!!st.on_top)}
   <div class="srow" style="cursor:default"><div class="x"><b>Размер окна плеера</b><small>Малый, средний или большой</small></div>${seg([['S','Малый'],['M','Средний'],['L','Большой']],st.size||'M','size')}</div></div>
  <div class="scard"><div class="srow" style="cursor:default"><div class="x"><b>Поисковик</b><small>Для режима «Поиск» во вкладке «Видео»</small></div>${seg(Object.entries(ENGINES).map(([k,v])=>[k,v[0]]),ui.engine||'google','engine','#4aa8ff')}</div></div>
+ ${bypassCard()}
  <div class="scard p14" style="--ac:#35e8e0"><div class="sh" style="color:#35e8e0">TIKTOK — ВИД ВИДЕО</div>
   <div class="srow" style="cursor:default;padding-top:0"><div class="x"><b>Режим</b><small>Задаёт переключатели ниже сразу</small></div>${seg([['min','Минимум'],['mid','Средний'],['full','Полный']],pre,'ttpre','#35e8e0')}</div>
   ${TOG.map(([k,n,d])=>row('tt',k,n,d,!!tt[k],'#35e8e0')).join('')}</div>
@@ -398,6 +412,8 @@ document.addEventListener('click',async e=>{
  else if(a==='pvfav'){S=await api.fav_link(q.trim());render()}
  else if(a==='layout'){S=await api.ui_setting('layout',d.v);render()}
  else if(a==='ui'){S=await api.ui_setting(d.k,!S.settings.ui[d.k]);render()}
+ else if(a==='bypass'){api.bypass_set(!BP.on)}
+ else if(a==='bprt'){api.bypass_retest();setTimeout(bpRefresh,300)}
  else if(a==='top'){S=await api.setting('on_top',!S.settings.on_top);render()}
  else if(a==='size'){S=await api.setting('size',d.v);render()}
  else if(a==='engine'){S=await api.ui_setting('engine',d.v);render()}
@@ -406,7 +422,7 @@ document.addEventListener('click',async e=>{
 });
 window.addEventListener('focus',()=>{if(!api)return;window.__mpSync();if(ORDER.includes(scr))refreshLogin()});
 window.addEventListener('pywebviewready',async()=>{
- api=pywebview.api;S=await api.state();setTimeout(()=>refreshLogin(),600);
+ api=pywebview.api;S=await api.state();bpRefresh();setTimeout(()=>refreshLogin(),600);
  const c=S.settings.ui.auto_paste?(await api.clipboard()).trim():'';
  const k=/youtu/i.test(c)?'yt':/tiktok/i.test(c)?'tt':/twitch\.tv/i.test(c)?'tw':/netflix\.com/i.test(c)?'nf':/vimeo/i.test(c)?'ot':null;
  if(/^https?:\/\//i.test(c)&&k){scr=k;q=c;doPreview()}

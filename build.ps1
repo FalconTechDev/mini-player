@@ -8,7 +8,7 @@ if ($LASTEXITCODE -ne 0) { throw 'build_ui.py failed' }
 
 python -m PyInstaller --noconfirm --clean --onefile --noconsole --name MiniPlayer `
     --icon icons\app.ico --add-data "ui.html;." --add-data "player.html;." --add-data "panel.html;." `
-    --add-data "tiktok_inject.js;." --add-data "icons;icons" --collect-all webview miniplayer.py
+    --add-data "tiktok_inject.js;." --add-data "icons;icons" --add-data "third_party\zapret;third_party\zapret" --collect-all webview miniplayer.py
 if ($LASTEXITCODE -ne 0) { throw 'app build failed' }
 
 New-Item -ItemType Directory -Force installer\payload | Out-Null

@@ -126,6 +126,15 @@ Linux needs the usual Qt/xcb libraries (on Debian or Ubuntu: `libxcb-cursor0 lib
 | `build.ps1` | One-command build |
 | `docs/` | Banner and screenshots |
 
+## Bypass mode (Windows, optional)
+
+Settings has a switch that helps open YouTube, TikTok, Twitch and Netflix where they are slowed down or blocked. It works **only inside this app**: the app runs a local proxy for its own windows and a [zapret](https://github.com/bol-van/zapret) `winws` instance that filters only the proxy's reserved source ports (52000-52999), so other programs and browsers are not touched. The app tries several strategies and keeps the one that works on your network.
+
+- Needs administrator rights (one Windows UAC prompt at start). Turning the mode on or off restarts the app.
+- Does not help with IP or DNS blocks, and cannot make a service available in a region where it does not operate.
+- Antivirus software may flag `winws.exe` and the WinDivert driver; this is typical for such tools. Their sources are linked below.
+- Third-party components in `third_party/zapret`: [zapret](https://github.com/bol-van/zapret) by bol-van (MIT) and [WinDivert](https://github.com/basil00/WinDivert) by basil00 (LGPLv3 / GPLv2).
+
 ## Privacy and data
 
 Everything is stored locally in `%APPDATA%\MiniPlayer` (Linux: `~/.local/share/MiniPlayer`, macOS: `~/Library/Application Support/MiniPlayer`): settings and history (`data.json`), the embedded browser profile
