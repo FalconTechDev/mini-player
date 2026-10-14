@@ -179,6 +179,9 @@ class QtPlatform:
         return n
 
     # ---------- геометрия ----------
+    def scale(self, win=None):
+        return 1.0                                          # Qt работает в логических пикселях
+
     def rect(self, win):
         def f():
             g = self._n(win).frameGeometry()

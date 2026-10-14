@@ -354,8 +354,9 @@ class PlayerApi:
     def size(self, key):
         table = SIZES_V if self._info["vertical"] else SIZES_H
         w, h = table[key]
+        k = P.scale(self._window)
         try:
-            P.place(self._window, w=w, h=h)
+            P.place(self._window, w=int(w * k), h=int(h * k))
         except Exception:
             pass
 
@@ -448,8 +449,9 @@ class PlayerApi:
         try:
             w = self._window
             x, y, ww, hh = P.rect(w)
+            k = P.scale(w)
             target = int(inner_w * vh / vw) + (hh - inner_h)
-            target = max(260, min(target, P.work_area(w)[3] - 20))
+            target = max(int(260 * k), min(target, P.work_area(w)[3] - int(20 * k)))
             if abs(target - hh) > 4:
                 P.place(w, w=ww, h=target)
         except Exception:
@@ -614,14 +616,15 @@ class PanelSet:
         x, y, w, h = P.rect(self.parent)
         mx, my, mw, mh = P.work_area(self.parent)
         fs = bool(getattr(self.parent, "_mp_fs", False))
-        ht, hb, hg = self.heights["top"], self.heights["bottom"], self.heights["gear"]
+        k = P.scale(self.parent)
+        ht, hb, hg = (int(self.heights[r] * k) for r in ("top", "bottom", "gear"))
         top_y = y if (fs or y - ht < my) else y - ht
         bot_y = y + h - hb if (fs or y + h + hb > my + mh) else y + h
-        gw = 270
-        gx = x + w + 6
+        gw = int(270 * k)
+        gx = x + w + int(6 * k)
         if gx + gw > mx + mw:
-            gx = x - gw - 6
-        gh = min(hg, mh - 20)
+            gx = x - gw - int(6 * k)
+        gh = min(hg, mh - int(20 * k))
         return {"top": (x, top_y, w, ht), "bottom": (x, bot_y, w, hb), "gear": (max(mx, gx), max(my, y), gw, gh)}
 
     def reposition(self):
@@ -647,8 +650,8 @@ class PanelSet:
         now = time.time()
         in_p = under is self.parent and x <= cx < x + w and y <= cy < y + h
         always = not AUTOHIDE[0]
-        want_top = always or self.gear_open or (in_p and cy < y + HOT_ZONE) or (self.vis["top"] and under is self.win.get("top"))
-        want_bot = always or (in_p and cy >= y + h - HOT_ZONE) or (self.vis["bottom"] and under is self.win.get("bottom"))
+        want_top = always or self.gear_open or (in_p and cy < y + HOT_ZONE * P.scale(self.parent)) or (self.vis["top"] and under is self.win.get("top"))
+        want_bot = always or (in_p and cy >= y + h - HOT_ZONE * P.scale(self.parent)) or (self.vis["bottom"] and under is self.win.get("bottom"))
         # под курсором чужое окно (переключились на другое приложение, оно перекрыло край) - панели убираем сразу, без задержки
         foreign = under is None
         if gone or (foreign and not always and not self.gear_open):
@@ -750,7 +753,8 @@ def open_player(info, geom=None):
     key = {"YouTube": "youtube"}.get(info["platform"], "player")
     kw = restore_geometry(key, w, h)
     if geom:                                                  # открыто из окна сайта — точно на его месте и того же размера
-        kw = dict(x=geom[0], y=geom[1], width=geom[2], height=geom[3])
+        k = P.scale()
+        kw = dict(x=int(geom[0] / k), y=int(geom[1] / k), width=int(geom[2] / k), height=int(geom[3] / k))
     win = webview.create_window(f"{info['platform']} - Mini Player", url, js_api=api, on_top=s["on_top"],
                                 min_size=(300, 220), frameless=P.frameless_players, **kw)
     track_closed(win)

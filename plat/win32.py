@@ -99,6 +99,15 @@ class Win32Platform:
         return h
 
     # ---------- геометрия ----------
+    def scale(self, win=None):
+        """Масштаб экрана (1.0 = 96 dpi): физические пиксели окна / CSS-пиксели страницы."""
+        try:
+            if win is not None:
+                return max(1.0, self.u.GetDpiForWindow(self.hwnd(win)) / 96.0)
+            return max(1.0, self.u.GetDpiForSystem() / 96.0)
+        except Exception:
+            return 1.0
+
     def rect(self, win):
         r = wintypes.RECT()
         self.u.GetWindowRect(self.hwnd(win), ctypes.byref(r))
