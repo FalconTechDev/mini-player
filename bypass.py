@@ -93,6 +93,7 @@ class Proxy:
         self._next = PORT_LO
         self._lock = threading.Lock()
         self.alive = True
+        self.desync = False              # True, пока winws запущен: тогда соединения идут с зарезервированных портов
         threading.Thread(target=self._accept, daemon=True).start()
 
     def _accept(self):
@@ -106,7 +107,7 @@ class Proxy:
     def _connect(self, host, port):
         infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
         last = None
-        use_range = scoped(host)
+        use_range = self.desync and scoped(host)
         for _fam, _t, _p, _cn, addr in infos:
             if not use_range:                                  # не наш сайт: обычное соединение, winws его не видит
                 try:
@@ -404,6 +405,8 @@ class Bypass:
             self._off()
 
     def _off(self):
+        if self.proxy:
+            self.proxy.desync = False
         if self.helper_alive():
             self._cmd(strategy=None)
         self.state, self.msg, self.strategy = "off", "", None
@@ -462,6 +465,7 @@ class Bypass:
                 return
             self.msg = "Проверка: %s" % STRATEGIES[i][0]
             self._cmd(strategy=i)
+            self.proxy.desync = True
             time.sleep(1.5)
             st = self._status()
             if not st.get("running"):
@@ -475,6 +479,7 @@ class Bypass:
                 break
         if best_i is None:
             self._cmd(strategy=None)
+            self.proxy.desync = False
             self.state, self.msg, self.strategy = "failed", "Ни одна стратегия не помогла у вашего провайдера", None
             return
         self._cmd(strategy=best_i)
