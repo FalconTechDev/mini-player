@@ -1,0 +1,111 @@
+name: Build
+
+on:
+  push:
+    branches: [main, cross-platform]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements.txt
+      - run: ./build.ps1
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            installer/dist/MiniPlayer_Setup.exe
+            dist/MiniPlayer.exe
+
+  linux:
+    runs-on: ubuntu-22.04
+    env:
+      QTWEBENGINE_CHROMIUM_FLAGS: "--disable-gpu --no-sandbox"
+      QTWEBENGINE_DISABLE_SANDBOX: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb openbox libegl1 libgl1 libglib2.0-0 libdbus-1-3 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 \
+            libxcb-cursor0 libnss3 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libasound2 libxkbfile1 libfontconfig1 \
+            libxi6 libxshmfence1 libfuse2
+      - run: pip install -r requirements-qt.txt
+      - run: python build_ui.py
+      - name: Smoke test (Xvfb + Openbox)
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" bash -c "openbox & sleep 2; python -u tests/smoke.py"
+      - name: Build
+        run: ./scripts/build_unix.sh
+      - name: Package
+        run: |
+          tar -czf MiniPlayer-linux-x86_64.tar.gz -C dist MiniPlayer
+          mkdir -p AppDir/usr/bin
+          cp -r dist/MiniPlayer/. AppDir/usr/bin/
+          cp packaging/linux/MiniPlayer.desktop AppDir/MiniPlayer.desktop
+          cp icons/app.png AppDir/miniplayer.png
+          printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexec "$HERE/usr/bin/MiniPlayer" "$@"\n' > AppDir/AppRun
+          chmod +x AppDir/AppRun
+          curl -sL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir MiniPlayer-x86_64.AppImage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            MiniPlayer-linux-x86_64.tar.gz
+            MiniPlayer-x86_64.AppImage
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-14, arch: arm64}
+          - {runner: macos-15-intel, arch: x86_64}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements-qt.txt
+      - run: python build_ui.py
+      - name: Smoke test
+        continue-on-error: true
+        run: python -u tests/smoke.py
+      - name: Build
+        run: ./scripts/build_unix.sh
+      - name: DMG
+        run: |
+          mkdir dmg && cp -R dist/MiniPlayer.app dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Mini Player" -srcfolder dmg -ov -format UDZO MiniPlayer-macos-${{ matrix.arch }}.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: MiniPlayer-macos-${{ matrix.arch }}.dmg
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-latest
+    permissions: {contents: write}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {path: artifacts}
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/windows/installer/dist/MiniPlayer_Setup.exe
+            artifacts/linux/*
+            artifacts/macos-arm64/*
+            artifacts/macos-x86_64/*
