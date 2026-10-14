@@ -136,7 +136,7 @@ const PL={
   warn:'Это не ссылка на YouTube.',search_url:q=>'https://www.youtube.com/results?search_query='+enc(q),realSearch:true,live:true,
   quick:[['Тренды','https://www.youtube.com/feed/trending'],['Главная','https://www.youtube.com'],['Подписки','https://www.youtube.com/feed/subscriptions']],quickLab:'ОТКРЫТЬ YOUTUBE ЦЕЛИКОМ',
   accText:'Нужен для лайков, комментариев, сообщений и подписок. Смотреть можно и без него.'},
- nf:{n:'Netflix',tab:'Netflix',c:'#e50914',ic:'netflix',mode:'netflix',plat:['Netflix'],noacc:true,
+ nf:{n:'Netflix',tab:'Netflix',c:'#e50914',ic:'netflix',mode:'netflix',plat:['Netflix'],noacc:true,simpleLogin:true,login:'https://www.netflix.com/login',
   lead:{link:'Ссылка на фильм или сериал откроет Netflix в окне. Пустое поле откроет главную.',search:'Введи запрос: откроется поиск Netflix.'},
   ph:{link:'https://www.netflix.com/title/…',search:'Что искать на Netflix…'},seg:'ССЫЛКА',
   test:q=>/netflix\.com/i.test(q),
@@ -198,6 +198,7 @@ const avEl=(a,i,sz,fs)=>a&&a.avatar?`<div style="width:${sz}px;height:${sz}px;fl
  :`<div style="width:${sz}px;height:${sz}px;flex:none;border:${sz>30?3:2}px solid #000;background:${a?PALC[i%4]:'#6b6252'};display:grid;place-items:center;font:900 ${fs}px 'Segoe UI';color:#000">${a?esc(((a.name||a.handle||'?')[0]||'?').toUpperCase()):'?'}</div>`;
 let accExp=null,accDel=null,accErr='';
 function acc(p){
+ if(p.simpleLogin)return `<div class="acc"><div class="accb" data-act="login" title="Откроется страница входа Netflix"><span style="padding-left:8px">Войти</span></div></div>`;
  if(p.noacc)return '';
  const L=(S.login||{})[scr],on=!!(L&&L.in),A=((S.acc||{})[scr])||{active:null,list:[]};
  const act=A.list.find(a=>a.id===A.active)||(on&&A.list[0])||null;
