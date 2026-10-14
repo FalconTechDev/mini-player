@@ -514,7 +514,7 @@ class Bypass:
 
 
 def show_splash(b):
-    """Маленькое окно «Подождите…», пока включается обход (запрос прав, подбор стратегии)."""
+    """Окно по центру экрана, пока включается обход (запрос прав, подбор стратегии); в конце показывает итог и закрывается."""
     def run():
         try:
             import tkinter as tk
@@ -522,22 +522,33 @@ def show_splash(b):
             r.overrideredirect(True)
             r.attributes("-topmost", True)
             r.configure(bg="#000")
-            w, h = 360, 110
-            r.geometry("%dx%d+%d+%d" % (w, h, (r.winfo_screenwidth() - w) // 2, 60))
+            w, h = 380, 120
+            r.geometry("%dx%d+%d+%d" % (w, h, (r.winfo_screenwidth() - w) // 2, (r.winfo_screenheight() - h) // 2))
             f = tk.Frame(r, bg="#ffc83d")
             f.pack(fill="both", expand=True, padx=3, pady=3)
             tk.Label(f, text="Mini Player", bg="#ffc83d", fg="#000", font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
-            tk.Label(f, text="Подождите, включаю обход блокировок…", bg="#ffc83d", fg="#000", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=14)
-            lab = tk.Label(f, text="", bg="#ffc83d", fg="#3a342c", font=("Segoe UI", 9), wraplength=330, justify="left")
+            head = tk.Label(f, text="Подождите, включаю обход блокировок…", bg="#ffc83d", fg="#000", font=("Segoe UI", 10, "bold"))
+            head.pack(anchor="w", padx=14)
+            lab = tk.Label(f, text="", bg="#ffc83d", fg="#3a342c", font=("Segoe UI", 9), wraplength=350, justify="left")
             lab.pack(anchor="w", padx=14, pady=(2, 0))
             t0 = time.time()
+            done = [0.0]
 
             def tick():
-                lab.config(text=b.msg or "")
                 if b.state in ("starting", "testing") and time.time() - t0 < 120:
+                    lab.config(text=b.msg or "")
                     r.after(300, tick)
-                else:
+                    return
+                if not done[0]:                              # итог
+                    ok = b.state in ("on", "unneeded")
+                    head.config(text="Все проверки пройдены" if b.state == "on" else
+                                "Обход не нужен" if b.state == "unneeded" else "Не удалось включить обход")
+                    lab.config(text=(b.msg or "") + ("" if ok else chr(10) + "Подробности: Настройки, Режим обхода блокировок"))
+                    done[0] = time.time()
+                if time.time() - done[0] > (2.5 if b.state in ("on", "unneeded") else 5):
                     r.destroy()
+                    return
+                r.after(300, tick)
             tick()
             r.mainloop()
         except Exception:
