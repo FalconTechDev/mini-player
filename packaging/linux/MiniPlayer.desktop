@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Mini Player
+Comment=Floating video windows for YouTube, TikTok, Twitch and video files
+Exec=MiniPlayer
+Icon=miniplayer
+Categories=AudioVideo;Video;Player;
+Terminal=false
+StartupWMClass=MiniPlayer

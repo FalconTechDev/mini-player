@@ -1,0 +1,6 @@
+# Linux, macOS (и Windows с MP_QT=1): Qt WebEngine
+pywebview[qt]>=6.0
+keyring
+cryptography
+pillow
+pyinstaller>=6.0

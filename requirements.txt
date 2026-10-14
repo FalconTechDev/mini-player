@@ -1,3 +1,4 @@
+# Windows (WebView2)
 pywebview>=6.0
 pillow
 pyinstaller>=6.0

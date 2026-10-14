@@ -12,7 +12,9 @@ from urllib.parse import urlparse, parse_qs, quote
 
 import webview
 
-DATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "MiniPlayer")
+from plat import P
+
+DATA_DIR = P.data_dir()
 DATA_FILE = os.path.join(DATA_DIR, "data.json")
 UA = {"User-Agent": "Mozilla/5.0"}
 
@@ -27,188 +29,31 @@ def resource(name):
 
 def set_icon(win, name="app"):
     """Свой значок в заголовке окна (для каждого режима свой) вместо значка Python."""
-    def apply():
-        try:
-            import System
-            from System.Drawing import Icon
-            ico = Icon(resource(f"icons/{name}.ico"))
-            win.native.Invoke(System.Action(lambda: setattr(win.native, "Icon", ico)))
-        except Exception:
-            pass
-    win.events.shown += apply
-
-
-import ctypes
-from ctypes import wintypes
-
-_u = ctypes.windll.user32
-_u.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
-_u.GetWindowLongPtrW.restype = ctypes.c_void_p
-_u.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
-_u.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_void_p]
-_u.SetLayeredWindowAttributes.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_ubyte, wintypes.DWORD]
-_u.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
-_u.ShowWindowAsync.argtypes = [wintypes.HWND, ctypes.c_int]
-_u.IsWindow.argtypes = [wintypes.HWND]
-_u.GetClientRect.argtypes = [wintypes.HWND, ctypes.c_void_p]
-_u.ClientToScreen.argtypes = [wintypes.HWND, ctypes.c_void_p]
-_u.GetForegroundWindow.restype = wintypes.HWND
-_u.IsIconic.argtypes = [wintypes.HWND]
-_u.IsWindowVisible.argtypes = [wintypes.HWND]
-_u.WindowFromPoint.argtypes = [wintypes.POINT]
-_u.WindowFromPoint.restype = wintypes.HWND
-_u.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
-_u.GetAncestor.restype = wintypes.HWND
-SWP_NOSIZE, SWP_NOMOVE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_ASYNC = 0x1, 0x2, 0x4, 0x10, 0x4000
-
-
-class _MONITORINFO(ctypes.Structure):
-    _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT), ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
-
-
-def ui_run(win, fn, timeout=6):
-    """Выполняет fn в потоке интерфейса окна без блокировки: BeginInvoke + ожидание с таймаутом."""
-    import System
-    done = threading.Event()
-    out = []
-
-    def run():
-        try:
-            out.append(fn())
-        except Exception as e:
-            out.append(e)
-        finally:
-            done.set()
-    win.native.BeginInvoke(System.Action(run))
-    if not done.wait(timeout):
-        raise TimeoutError("поток интерфейса занят")
-    if out and isinstance(out[0], Exception):
-        raise out[0]
-    return out[0] if out else None
-
-
-def hwnd_of(win):
-    """Дескриптор окна (запоминается в потоке интерфейса при показе окна)."""
-    h = getattr(win, "_mp_hwnd", 0)
-    if not h:
-        h = int(win.native.Handle.ToInt64())
-        win._mp_hwnd = h
-    return h
-
-
-def win_rect(h):
-    r = wintypes.RECT()
-    _u.GetWindowRect(h, ctypes.byref(r))
-    return r.left, r.top, r.right - r.left, r.bottom - r.top
-
-
-def win_place(h, x=None, y=None, w=None, hh=None):
-    """Двигает/меняет размер окна без ожидания потока интерфейса (не блокирует)."""
-    flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNC
-    if x is None:
-        flags |= SWP_NOMOVE
-    if w is None:
-        flags |= SWP_NOSIZE
-    _u.SetWindowPos(h, None, x or 0, y or 0, w or 0, hh or 0, flags)
-
-
-def win_topmost(h, on):
-    _u.SetWindowPos(h, wintypes.HWND(-1 if on else -2), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_ASYNC)
-
-
-def work_area(h, full=False):
-    """Прямоугольник монитора, на котором окно: (x, y, ширина, высота)."""
-    mi = _MONITORINFO()
-    mi.cbSize = ctypes.sizeof(mi)
-    _u.GetMonitorInfoW(_u.MonitorFromWindow(h, 2), ctypes.byref(mi))
-    r = mi.rcMonitor if full else mi.rcWork
-    return r.left, r.top, r.right - r.left, r.bottom - r.top
-
-
-def client_rect_screen(h):
-    """Область содержимого окна (без заголовка и рамок) в координатах экрана: (x, y, ширина, высота)."""
-    rc = wintypes.RECT()
-    _u.GetClientRect(h, ctypes.byref(rc))
-    pt = wintypes.POINT(0, 0)
-    _u.ClientToScreen(h, ctypes.byref(pt))
-    return pt.x, pt.y, rc.right - rc.left, rc.bottom - rc.top
-
-
-def align_client(h, target):
-    """Двигает окно так, чтобы его содержимое совпало с target = (x, y, ширина, высота) на экране."""
-    ox, oy, ow, oh = win_rect(h)
-    cx, cy, cw, ch = client_rect_screen(h)
-    tx, ty, tw, th = target
-    win_place(h, tx - (cx - ox), ty - (cy - oy), tw + (ow - cw), th + (oh - ch))
-
-
-def set_caption(win, visible):
-    """Показывает/прячет заголовок окна Windows, оставляя рамку для изменения размера."""
-    try:
-        h = hwnd_of(win)
-        style = _u.GetWindowLongPtrW(h, -16) or 0
-        if visible:
-            style |= 0x00C00000 | 0x00040000       # WS_CAPTION | WS_THICKFRAME
-        else:
-            style = (style & ~0x00C00000) | 0x00040000
-        _u.SetWindowLongPtrW(h, -16, style)
-        _u.SetWindowPos(h, None, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | 0x0020 | SWP_ASYNC)
-    except Exception:
-        pass
-
-
-def set_opacity(win, value):
-    """Прозрачность окна целиком (0.3–1.0)."""
-    try:
-        h = hwnd_of(win)
-        v = max(0.3, min(1.0, float(value)))
-        ex = _u.GetWindowLongPtrW(h, -20) or 0
-        _u.SetWindowLongPtrW(h, -20, ex | 0x00080000)          # WS_EX_LAYERED
-        _u.SetLayeredWindowAttributes(h, 0, int(255 * v), 2)    # LWA_ALPHA
-    except Exception:
-        pass
-
-
-KEEPALIVE_JS = """(()=>{try{
- Object.defineProperty(Document.prototype,'hidden',{get:()=>false,configurable:true});
- Object.defineProperty(Document.prototype,'visibilityState',{get:()=>'visible',configurable:true});
- Object.defineProperty(Document.prototype,'webkitHidden',{get:()=>false,configurable:true});
- Object.defineProperty(Document.prototype,'webkitVisibilityState',{get:()=>'visible',configurable:true});
- ['visibilitychange','webkitvisibilitychange'].forEach(t=>document.addEventListener(t,e=>e.stopImmediatePropagation(),true));
-}catch(e){}})();"""
+    P.set_icon(win, name, resource)
 
 
 def install_keepalive(win):
-    """Страницы (и вложенные плееры YouTube/Twitch) считают, что окно всегда видно, — не ставят видео на паузу при сворачивании."""
-    def run():
-        for _ in range(60):
-            time.sleep(0.25)
-            try:
-                ui_run(win, lambda: win.native.webview.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(KEEPALIVE_JS))
-                win.evaluate_js(KEEPALIVE_JS)
-                return
-            except Exception:
-                continue
-    win.events.shown += lambda: threading.Thread(target=run, daemon=True).start()
+    """Страницы (и вложенные плееры) считают, что окно всегда видно, - не ставят видео на паузу при сворачивании."""
+    P.keepalive(win)
+
+
+def track_closed(win):
+    win.events.closed += lambda: setattr(win, "_mp_closed", True)
 
 
 def apply_frame(win):
-    """При показе окна прячет заголовок, если это включено в настройках."""
+    """При показе окна прячет системный заголовок, применяет прозрачность и (если нужно) выравнивает по заданной области."""
     def run():
         d = load()["settings"]
-        try:
-            win._mp_hwnd = int(win.native.Handle.ToInt64())
-        except Exception:
-            pass
-        set_caption(win, False)
-        set_opacity(win, d["ui"]["opacity"])
+        P.prepare_player(win)
+        P.set_opacity(win, d["ui"]["opacity"])
         target = getattr(win, "_mp_align", None)
         if target:
             def align():
-                for _ in range(3):                         # рамки меняются не мгновенно — подгоняем несколько раз
+                for _ in range(3):                         # рамки меняются не мгновенно - подгоняем несколько раз
                     time.sleep(0.2)
                     try:
-                        align_client(hwnd_of(win), target)
+                        P.align_client(win, target)
                     except Exception:
                         pass
             threading.Thread(target=align, daemon=True).start()
@@ -501,13 +346,7 @@ class PlayerApi:
         """Закрепить/открепить окно поверх остальных. Возвращает новое состояние."""
         self._on_top = not self._on_top
         try:
-            win_topmost(hwnd_of(self._window), self._on_top)
-            win = self._window
-
-            def sync():                                   # состояние самой формы WinForms (в её потоке, без ожидания)
-                import System
-                win.native.BeginInvoke(System.Action(lambda: setattr(win.native, "TopMost", self._on_top)))
-            threading.Thread(target=sync, daemon=True).start()
+            P.topmost(self._window, self._on_top)
         except Exception:
             pass
         return self._on_top
@@ -516,7 +355,7 @@ class PlayerApi:
         table = SIZES_V if self._info["vertical"] else SIZES_H
         w, h = table[key]
         try:
-            win_place(hwnd_of(self._window), w=w, hh=h)
+            P.place(self._window, w=w, h=h)
         except Exception:
             pass
 
@@ -525,13 +364,13 @@ class PlayerApi:
 
     def close(self):
         try:
-            _u.PostMessageW(hwnd_of(self._window), 0x0010, 0, 0)   # WM_CLOSE
+            P.close(self._window)
         except Exception:
             self._window.destroy()
 
     def minimize(self):
         try:
-            _u.ShowWindowAsync(hwnd_of(self._window), 6)            # SW_MINIMIZE
+            P.minimize(self._window)
         except Exception:
             pass
 
@@ -539,18 +378,17 @@ class PlayerApi:
         """Переключает полноэкранный и оконный режимы. Возвращает True, если теперь полный экран."""
         w = self._window
         try:
-            h = hwnd_of(w)
             if not getattr(w, "_mp_fs", False):
-                self._saved = win_rect(h)
-                x, y, ww, hh = work_area(h, full=True)
+                self._saved = P.rect(w)
+                x, y, ww, hh = P.work_area(w, full=True)
                 w._mp_fs = True
-                win_topmost(h, True)
-                win_place(h, x, y, ww, hh)
+                P.topmost(w, True)
+                P.place(w, x, y, ww, hh)
             else:
                 x, y, ww, hh = self._saved
                 w._mp_fs = False
-                win_place(h, x, y, ww, hh)
-                win_topmost(h, self._on_top)
+                P.place(w, x, y, ww, hh)
+                P.topmost(w, self._on_top)
         except Exception:
             pass
         return bool(getattr(w, "_mp_fs", False))
@@ -566,24 +404,13 @@ class PlayerApi:
         return update_tt(key, value)
 
     def drag(self):
-        """Перетаскивание окна: пока зажата левая кнопка мыши, окно идёт за курсором."""
+        """Перетаскивание окна за панель: пока зажата кнопка мыши, окно идёт за курсором."""
         w = self._window
         if getattr(w, "_mp_fs", False):
             return
         try:
-            h = hwnd_of(w)
-            pt = wintypes.POINT()
-            _u.GetCursorPos(ctypes.byref(pt))
-            x0, y0, _, _ = win_rect(h)
-            ox, oy = pt.x - x0, pt.y - y0
-            t0 = time.time()
-            while _u.GetAsyncKeyState(0x01) & 0x8000 and time.time() - t0 < 60:
-                _u.GetCursorPos(ctypes.byref(pt))
-                win_place(h, pt.x - ox, pt.y - oy)
-                ps = getattr(self, "_panels", None)
-                if ps:
-                    ps.reposition()
-                time.sleep(0.008)
+            ps = getattr(self, "_panels", None)
+            P.drag(w, ps.reposition if ps else None)
         except Exception:
             pass
 
@@ -619,12 +446,12 @@ class PlayerApi:
     def fit(self, vw, vh, inner_w, inner_h):
         """Подгоняет окно под пропорции видео (по текущей ширине)."""
         try:
-            h = hwnd_of(self._window)
-            x, y, ww, hh = win_rect(h)
+            w = self._window
+            x, y, ww, hh = P.rect(w)
             target = int(inner_w * vh / vw) + (hh - inner_h)
-            target = max(260, min(target, work_area(h)[3] - 20))
+            target = max(260, min(target, P.work_area(w)[3] - 20))
             if abs(target - hh) > 4:
-                win_place(h, w=ww, hh=target)
+                P.place(w, w=ww, h=target)
         except Exception:
             pass
 
@@ -730,25 +557,21 @@ class PanelSet:
         for role in roles:
             try:
                 win = webview.create_window("panel", self.url(role), js_api=PanelApi(self, role), width=300,
-                                            height=self.heights[role], frameless=True, hidden=True, resizable=False,
-                                            focus=False, min_size=(10, 10), background_color="#26211c")
+                                            height=self.heights[role], frameless=True, hidden=True,
+                                            resizable=P.panel_resizable, focus=False, min_size=(10, 10),
+                                            background_color="#26211c")
+                track_closed(win)
                 self.win[role] = win
                 PANEL_WINDOWS.append(win)
             except Exception:
                 continue
-        for role, win in self.win.items():
-            for _ in range(60):
-                try:
-                    self.hw[role] = int(win.native.Handle.ToInt64())
-                    win._mp_hwnd = self.hw[role]
-                    break
-                except Exception:
-                    time.sleep(0.1)
-            h = self.hw.get(role)
-            if h:
-                ex = _u.GetWindowLongPtrW(h, -20) or 0
-                _u.SetWindowLongPtrW(h, -20, ex | 0x00000080 | 0x08000000)      # TOOLWINDOW | NOACTIVATE
-                _u.ShowWindowAsync(h, 0)
+        for role, win in list(self.win.items()):
+            if not P.panel_resolve_handle(win):
+                continue
+            try:
+                P.panel_setup(win, self.parent)
+            except Exception:
+                pass
         self.ready = True
         ensure_panel_loop()
 
@@ -760,41 +583,36 @@ class PanelSet:
         self.alive = False
         if self in PANEL_SETS:
             PANEL_SETS.remove(self)
-        for role, h in self.hw.items():
+        for w in self.win.values():
             try:
-                _u.PostMessageW(h, 0x0010, 0, 0)
+                P.panel_close(w)
             except Exception:
                 pass
-        for w in self.win.values():
             if w in PANEL_WINDOWS:
                 PANEL_WINDOWS.remove(w)
 
     def _show(self, role, on, rect):
-        h = self.hw.get(role)
-        if not h:
+        w = self.win.get(role)
+        if w is None:
             return
         if on:
             if self.pos.get(role) != rect:
                 self.pos[role] = rect
-                win_place(h, *rect)
-            # держим панель выше окна плеера (окно могло быть поднято кликом): закреплённое — «поверх всего»
+                P.panel_place(w, rect)
             pinned = bool(self.api._on_top)
-            if not pinned and self.zstate.get(role) is not False:        # окно открепили — снимаем «поверх всего» и с панели
-                _u.SetWindowPos(h, wintypes.HWND(-2), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_ASYNC)
+            P.panel_z(w, pinned, (not pinned) and self.zstate.get(role) is not False)     # окно открепили - панель тоже
             self.zstate[role] = pinned
-            _u.SetWindowPos(h, wintypes.HWND(-1 if pinned else 0), 0, 0, 0, 0,
-                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_ASYNC)
             if not self.vis[role]:
                 self.vis[role] = True
-                _u.ShowWindowAsync(h, 4)                         # SW_SHOWNOACTIVATE
+                P.panel_visible(w, True)
         elif self.vis[role]:
             self.vis[role] = False
-            _u.ShowWindowAsync(h, 0)
+            P.panel_visible(w, False)
 
-    def layout(self, ph):
+    def layout(self):
         """Положение панелей относительно окна плеера: -> {роль: (x, y, w, h)}."""
-        x, y, w, h = win_rect(ph)
-        mx, my, mw, mh = work_area(ph)
+        x, y, w, h = P.rect(self.parent)
+        mx, my, mw, mh = P.work_area(self.parent)
         fs = bool(getattr(self.parent, "_mp_fs", False))
         ht, hb, hg = self.heights["top"], self.heights["bottom"], self.heights["gear"]
         top_y = y if (fs or y - ht < my) else y - ht
@@ -809,33 +627,30 @@ class PanelSet:
     def reposition(self):
         """Сразу переставляет видимые панели за окном (во время перетаскивания)."""
         try:
-            rects = self.layout(hwnd_of(self.parent))
-            for role, rect in rects.items():
-                h = self.hw.get(role)
-                if h and self.vis.get(role) and self.pos.get(role) != rect:
+            for role, rect in self.layout().items():
+                w = self.win.get(role)
+                if w is not None and self.vis.get(role) and self.pos.get(role) != rect:
                     self.pos[role] = rect
-                    win_place(h, *rect)
+                    P.panel_place(w, rect)
         except Exception:
             pass
 
     def tick(self):
-        ph = hwnd_of(self.parent)
-        if not _u.IsWindow(ph):
+        if not P.is_alive(self.parent) or getattr(self.parent, "_mp_closed", False):
             self.destroy()
             return
-        gone = _u.IsIconic(ph) or not _u.IsWindowVisible(ph)
-        x, y, w, h = win_rect(ph)
-        rects = self.layout(ph)
-        pt = wintypes.POINT()
-        _u.GetCursorPos(ctypes.byref(pt))
-        root = _u.GetAncestor(_u.WindowFromPoint(pt), 2)
+        gone = P.is_minimized(self.parent) or not P.is_visible(self.parent)
+        x, y, w, h = P.rect(self.parent)
+        rects = self.layout()
+        cx, cy = P.cursor()
+        under = P.at_cursor([self.parent] + list(self.win.values()))
         now = time.time()
-        in_p = root == ph and x <= pt.x < x + w and y <= pt.y < y + h
+        in_p = under is self.parent and x <= cx < x + w and y <= cy < y + h
         always = not AUTOHIDE[0]
-        want_top = always or self.gear_open or (in_p and pt.y < y + HOT_ZONE) or (self.vis["top"] and root == self.hw.get("top"))
-        want_bot = always or (in_p and pt.y >= y + h - HOT_ZONE) or (self.vis["bottom"] and root == self.hw.get("bottom"))
-        # под курсором чужое окно (переключились на другое приложение, оно перекрыло край) — панели убираем сразу, без задержки
-        foreign = root not in ([ph] + list(self.hw.values()))
+        want_top = always or self.gear_open or (in_p and cy < y + HOT_ZONE) or (self.vis["top"] and under is self.win.get("top"))
+        want_bot = always or (in_p and cy >= y + h - HOT_ZONE) or (self.vis["bottom"] and under is self.win.get("bottom"))
+        # под курсором чужое окно (переключились на другое приложение, оно перекрыло край) - панели убираем сразу, без задержки
+        foreign = under is None
         if gone or (foreign and not always and not self.gear_open):
             want_top = want_bot = False
             self.last_want["top"] = self.last_want["bottom"] = 0
@@ -843,33 +658,30 @@ class PanelSet:
             self.last_want["top"] = now
         if want_bot:
             self.last_want["bottom"] = now
-        if "top" in self.hw:
+        if "top" in self.win:
             self._show("top", now - self.last_want["top"] < 0.45, rects["top"])
-        if "bottom" in self.hw:
+        if "bottom" in self.win:
             self._show("bottom", now - self.last_want["bottom"] < 0.45, rects["bottom"])
-        if "gear" in self.hw:
-            self._show("gear", self.gear_open and not gone and (not foreign or self.vis["gear"]), rects["gear"])
+        if "gear" in self.win:
+            self._show("gear", self.gear_open and not gone and (not foreign or always or self.vis["gear"]), rects["gear"])
 
 
-def panel_loop():
-    while True:
-        time.sleep(0.06)
-        for ps in list(PANEL_SETS):
-            try:
-                if ps.ready and ps.alive:
-                    ps.tick()
-            except Exception:
-                pass
+def panel_tick_all():
+    for ps in list(PANEL_SETS):
+        try:
+            if ps.ready and ps.alive:
+                ps.tick()
+        except Exception:
+            pass
 
 
-_PANEL_THREAD = []
+_PANEL_LOOP = []
 
 
 def ensure_panel_loop():
-    if not _PANEL_THREAD:
-        t = threading.Thread(target=panel_loop, daemon=True)
-        _PANEL_THREAD.append(t)
-        t.start()
+    if not _PANEL_LOOP:
+        _PANEL_LOOP.append(1)
+        P.schedule(panel_tick_all, 60)
 
 
 def attach_panels(win, api, kind, platform, title):
@@ -878,6 +690,7 @@ def attach_panels(win, api, kind, platform, title):
     PANEL_SETS.append(ps)
     win.events.shown += lambda: threading.Thread(target=ps.create, daemon=True).start()
     win.events.closed += ps.destroy
+    win.events.moved += lambda x, y: ps.reposition()
     return ps
 
 
@@ -891,7 +704,7 @@ def update_ui(key, value):
         AUTOHIDE[0] = bool(value)
     if key == "opacity":
         for w in list(TT_WINDOWS) + list(PLAYER_WINDOWS):
-            set_opacity(w, value)
+            P.set_opacity(w, value)
     for w in list(TT_WINDOWS) + list(PLAYER_WINDOWS) + list(PANEL_WINDOWS):
         try:
             w.evaluate_js("window.__mpUi&&window.__mpUi(%s)" % json.dumps(d["settings"]["ui"]))
@@ -938,8 +751,9 @@ def open_player(info, geom=None):
     kw = restore_geometry(key, w, h)
     if geom:                                                  # открыто из окна сайта — точно на его месте и того же размера
         kw = dict(x=geom[0], y=geom[1], width=geom[2], height=geom[3])
-    win = webview.create_window(f"{info['platform']} — Mini Player", url, js_api=api, on_top=s["on_top"],
-                                min_size=(300, 220), **kw)
+    win = webview.create_window(f"{info['platform']} - Mini Player", url, js_api=api, on_top=s["on_top"],
+                                min_size=(300, 220), frameless=P.frameless_players, **kw)
+    track_closed(win)
     if geom:
         win._mp_align = geom
     api._window = win
@@ -1002,8 +816,9 @@ def open_tiktok(url):
     st = load()["settings"]
     w, h = SIZES_V.get(st.get("size", "M"), SIZES_V["M"])
     api = PlayerApi(dict(vertical=True, canonical=url), st["on_top"])
-    win = webview.create_window("TikTok — Mini Player", url, js_api=api, on_top=st["on_top"],
-                                min_size=(320, 240), **restore_geometry("tiktok", w, h))
+    win = webview.create_window("TikTok - Mini Player", url, js_api=api, on_top=st["on_top"],
+                                min_size=(320, 240), frameless=P.frameless_players, **restore_geometry("tiktok", w, h))
+    track_closed(win)
     api._window = win
     set_icon(win, "tiktok")
     apply_frame(win)
@@ -1024,59 +839,14 @@ LOGIN_SITES = {
 MAIN_WIN = []
 
 
-COOKIE_LOCK = threading.Lock()
 LOGIN_CACHE = {}
 
 
 def read_cookies(sites, delete=False):
-    """Cookie профиля приложения для заданных сайтов (имя, значение). С delete=True удаляет их.
-    Никогда не блокирует поток интерфейса: незавершённые запросы просто пропускаются."""
-    import System
-    if not MAIN_WIN or not COOKIE_LOCK.acquire(timeout=8):
-        raise RuntimeError("cookie заняты")
-    try:
-        nat = MAIN_WIN[0].native
-        box = {}
-
-        def start():
-            cm = nat.webview.CoreWebView2.CookieManager
-            for site in sites:
-                box[site] = cm.GetCookiesAsync(site)
-
-        for _ in range(40):                   # движок страницы может ещё запускаться
-            try:
-                ui_run(MAIN_WIN[0], start)
-                break
-            except Exception:
-                time.sleep(0.25)
-        else:
-            raise RuntimeError("WebView2 не готов")
-        for _ in range(50):
-            if all(t.IsCompleted for t in box.values()):
-                break
-            time.sleep(0.1)
-        if not all(t.IsCompleted for t in box.values()):
-            raise RuntimeError("cookie не получены")
-        res = {}
-
-        def extract():                        # COM-объекты cookie читаются только в потоке интерфейса
-            cm = nat.webview.CoreWebView2.CookieManager
-            for site, task in box.items():
-                lst = []
-                try:
-                    if task.IsCompleted:
-                        for c in task.Result:
-                            lst.append((str(c.Name), str(c.Value)))
-                            if delete:
-                                cm.DeleteCookie(c)
-                except Exception:
-                    pass
-                res[site] = lst
-
-        ui_run(MAIN_WIN[0], extract)
-        return res
-    finally:
-        COOKIE_LOCK.release()
+    """Cookie профиля приложения для заданных сайтов. -> {"*": [(имя, значение), ...]}.
+    С delete=True удаляет их. Никогда не блокирует поток интерфейса."""
+    rows = P.cookies(sites, delete)
+    return {"*": [(r["name"], r["value"]) for r in rows]}
 
 
 # ---------- данные аккаунта (ник и аватар) со страницы сайта ----------
@@ -1153,27 +923,10 @@ LOGIN_PAGES = {"yt": "https://accounts.google.com/ServiceLogin?service=youtube&c
                "tt": "https://www.tiktok.com/login", "tw": "https://www.twitch.tv/login"}
 
 
-class _BLOB(ctypes.Structure):
-    _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
-
-
-def _dpapi(data, protect):
-    crypt = ctypes.windll.crypt32
-    buf = ctypes.create_string_buffer(data, len(data))
-    inp = _BLOB(len(data), ctypes.cast(buf, ctypes.POINTER(ctypes.c_char)))
-    out = _BLOB()
-    fn = crypt.CryptProtectData if protect else crypt.CryptUnprotectData
-    if not fn(ctypes.byref(inp), None, None, None, None, 0, ctypes.byref(out)):
-        raise OSError("DPAPI")
-    res = ctypes.string_at(out.pbData, out.cbData)
-    ctypes.windll.kernel32.LocalFree(out.pbData)
-    return res
-
-
 def acc_store_load():
     try:
         with open(ACC_FILE, "rb") as f:
-            return json.loads(_dpapi(f.read(), False).decode("utf-8"))
+            return json.loads(P.unprotect(f.read()).decode("utf-8"))
     except Exception:
         return {}
 
@@ -1181,64 +934,21 @@ def acc_store_load():
 def acc_store_save(st):
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(ACC_FILE, "wb") as f:
-        f.write(_dpapi(json.dumps(st).encode("utf-8"), True))
+        f.write(P.protect(json.dumps(st).encode("utf-8")))
 
 
 def cookie_dump(pid):
     """Полные cookie платформы (для сохранения сеанса аккаунта)."""
-    import System
-    sites = ACC_SITES[pid]
-    nat = MAIN_WIN[0].native
-    box = {}
-
-    def start():
-        cm = nat.webview.CoreWebView2.CookieManager
-        for site in sites:
-            box[site] = cm.GetCookiesAsync(site)
-    ui_run(MAIN_WIN[0], start)
-    for _ in range(60):
-        if all(t.IsCompleted for t in box.values()):
-            break
-        time.sleep(0.1)
-    rows = {}
-
-    def extract():
-        for task in box.values():
-            if not task.IsCompleted:
-                continue
-            for c in task.Result:
-                key = (str(c.Name), str(c.Domain), str(c.Path))
-                rows[key] = dict(name=str(c.Name), value=str(c.Value), domain=str(c.Domain), path=str(c.Path),
-                                 expires=None if c.IsSession else c.Expires.ToString("o"),
-                                 http=bool(c.IsHttpOnly), secure=bool(c.IsSecure), same=int(c.SameSite))
-    ui_run(MAIN_WIN[0], extract)
-    return list(rows.values())
+    return P.cookies(ACC_SITES[pid])
 
 
 def cookie_wipe(pid):
     """Удаляет все cookie платформы из профиля (выход из аккаунта)."""
-    read_cookies(ACC_SITES[pid], delete=True)
+    P.cookies(ACC_SITES[pid], delete=True)
 
 
 def cookie_restore(items):
-    import System
-
-    def go():
-        cm = MAIN_WIN[0].native.webview.CoreWebView2.CookieManager
-        for it in items:
-            c = cm.CreateCookie(it["name"], it["value"], it["domain"], it["path"])
-            if it.get("expires"):
-                c.Expires = System.DateTime.Parse(it["expires"], System.Globalization.CultureInfo.InvariantCulture,
-                                                  System.Globalization.DateTimeStyles.RoundtripKind)
-            c.IsHttpOnly = bool(it.get("http"))
-            c.IsSecure = bool(it.get("secure"))
-            try:
-                from Microsoft.Web.WebView2.Core import CoreWebView2CookieSameSiteKind as K
-                c.SameSite = K(int(it.get("same", 1)))
-            except Exception:
-                pass
-            cm.AddOrUpdateCookie(c)
-    ui_run(MAIN_WIN[0], go, timeout=20)
+    P.cookie_restore(items)
 
 
 def acc_public(d, pid):
@@ -1340,23 +1050,7 @@ def start_diagnostics(main_win):
         log.write(time.strftime("%Y-%m-%d %H:%M:%S") + " поток " + str(args.thread) + ": " + repr(args.exc_value) + "\n")
     threading.excepthook = hook
 
-    def watch():
-        while True:
-            time.sleep(20)
-            try:
-                import System                      # доступно после запуска движка окон
-            except Exception:
-                continue
-            flag = threading.Event()
-            try:
-                main_win.native.BeginInvoke(System.Action(flag.set))
-            except Exception:
-                continue
-            if not flag.wait(10):
-                log.write(time.strftime("%Y-%m-%d %H:%M:%S") + " ИНТЕРФЕЙС НЕ ОТВЕЧАЕТ, стеки потоков:\n")
-                faulthandler.dump_traceback(file=log, all_threads=True)
-                time.sleep(60)
-    threading.Thread(target=watch, daemon=True).start()
+    P.start_watchdog(main_win, log)
 
 
 INTERCEPT_JS = r"""(()=>{const K='%s';if(window.__mpI)return;window.__mpI=1;
@@ -1378,14 +1072,14 @@ class SiteApi:
 
     def open_video(self, url):
         try:
-            geom = client_rect_screen(hwnd_of(self._window))
+            geom = P.client_rect(self._window)
         except Exception:
             geom = None
         r = MainApi().play(url, "", False, geom)
         if r.get("ok"):
             notify_main()
             try:
-                _u.PostMessageW(hwnd_of(self._window), 0x0010, 0, 0)      # закрыть окно сайта
+                P.close(self._window)                                       # закрыть окно сайта
             except Exception:
                 pass
 
@@ -1395,15 +1089,7 @@ class MainApi:
         return load()
 
     def clipboard(self):
-        try:
-            import tkinter
-            r = tkinter.Tk()
-            r.withdraw()
-            txt = r.clipboard_get()
-            r.destroy()
-            return txt
-        except Exception:
-            return ""
+        return P.clipboard()
 
     def play(self, link, mode="", resume=False, geom=None):
         link = link.strip()
@@ -1632,11 +1318,7 @@ class MainApi:
 HTML = open(resource("ui.html"), encoding="utf-8").read()
 
 if __name__ == "__main__":
-    # окна не «засыпают» при сворачивании: звук и видео продолжаются
-    os.environ.setdefault("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-                          "--disable-features=CalculateNativeWinOcclusion --disable-renderer-backgrounding "
-                          "--disable-background-timer-throttling --disable-backgrounding-occluded-windows "
-                          "--autoplay-policy=no-user-gesture-required")
+    P.prepare_env()
     import socket
     _lock = socket.socket()
     try:
@@ -1649,6 +1331,7 @@ if __name__ == "__main__":
     set_icon(main)
     install_keepalive(main)
     MAIN_WIN.append(main)
+    P.set_main(main)
     start_diagnostics(main)
     AUTOHIDE[0] = load()["settings"]["ui"].get("autohide_bar", True)
     os.makedirs(os.path.join(DATA_DIR, "web"), exist_ok=True)
@@ -1663,7 +1346,7 @@ if __name__ == "__main__":
             failed.append(1)
             main_win.destroy()
 
-    webview.start(watchdog, private_mode=False, storage_path=os.path.join(DATA_DIR, "web"))
+    webview.start(watchdog, **P.start_kwargs(os.path.join(DATA_DIR, "web")))
     tries = int(os.environ.get("MP_TRY", "0"))
     if failed and tries < 8:
         import subprocess
