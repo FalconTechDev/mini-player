@@ -1125,7 +1125,12 @@ class MainApi:
     def bypass_set(self, on):
         update_ui("bypass", bool(on))
         b = get_bypass()
-        b.launch() if on else b.disable()
+        if on and not b.in_browser:                         # окна запущены без прокси: один раз перезапускаем, дальше включается и выключается на лету
+            threading.Timer(0.4, restart_app).start()
+        elif on:
+            b.launch()
+        else:
+            b.disable()
         return True
 
     def bypass_retest(self):
@@ -1403,12 +1408,11 @@ if __name__ == "__main__":
             if _try == 19 or not os.environ.get("MP_RESTART"):
                 raise SystemExit  # уже запущено
             time.sleep(0.5)
-    if bypass.supported():                                   # прокси есть всегда, чтобы включать и выключать обход без перезапуска
+    if bypass.supported() and load()["settings"]["ui"].get("bypass"):      # без включённого обхода прокси нет: сеть работает как обычно
         BYPASS = get_bypass()
         os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] += " " + BYPASS.browser_args()
         BYPASS.install_python_proxy()
-        if load()["settings"]["ui"].get("bypass"):
-            BYPASS.launch()
+        BYPASS.launch()
     main = webview.create_window("Mini Player", html=HTML, js_api=MainApi(), min_size=(640, 480),
                                  **restore_geometry("main", 760, 620))
     track_geometry(main, "main")

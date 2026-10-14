@@ -130,7 +130,7 @@ Linux needs the usual Qt/xcb libraries (on Debian or Ubuntu: `libxcb-cursor0 lib
 
 Settings has a switch that helps open YouTube, Twitch and other blocked sites where they are slowed down or blocked; TikTok and Netflix are connected directly. It works **only inside this app**: the app runs a local proxy for its own windows and a [zapret](https://github.com/bol-van/zapret) `winws` instance that filters only the proxy's reserved source ports (52000-52999), so other programs and browsers are not touched. The app tries several strategies and keeps the one that works on your network.
 
-- Needs administrator rights (one Windows UAC prompt per app launch, only if the mode is on). Switching it on or off does not restart the app.
+- Needs administrator rights (one Windows UAC prompt per app launch, only if the mode is on). While the mode is off the app uses the network as usual; the first time you switch it on the app restarts once, after that it can be switched on and off without restarts.
 - Does not help with IP or DNS blocks, and cannot make a service available in a region where it does not operate.
 - Antivirus software may flag `winws.exe` and the WinDivert driver; this is typical for such tools. Their sources are linked below.
 - Third-party components in `third_party/zapret`: [zapret](https://github.com/bol-van/zapret) by bol-van (MIT) and [WinDivert](https://github.com/basil00/WinDivert) by basil00 (LGPLv3 / GPLv2).

@@ -120,6 +120,7 @@ class Proxy:
                     self._next = PORT_LO if self._next >= PORT_HI else self._next + 1
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)      # порты в TIME_WAIT не должны кончаться
                 try:
                     s.bind(("0.0.0.0", sp))
                 except OSError:
@@ -339,6 +340,7 @@ class Bypass:
         self.state, self.msg, self.strategy = "off", "", None
         self.busy = False
         self.want = False
+        self.in_browser = False          # окна браузера запущены с нашим прокси
 
     # --- вспомогательное
     def _cmd(self, **kw):
@@ -377,6 +379,7 @@ class Bypass:
 
     def browser_args(self):
         """Дополнительные флаги Chromium (WebView2): весь трафик окон идёт через наш прокси, QUIC выключен."""
+        self.in_browser = True
         return "--proxy-server=http://127.0.0.1:%d --disable-quic" % self.start_proxy()
 
     def install_python_proxy(self):
