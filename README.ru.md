@@ -2,11 +2,13 @@
 
 <img src="docs/banner.png" alt="Mini Player" width="100%">
 
-**Плавающие видео-окна для Windows - браузер не нужен.**
+**Плавающие видео-окна для Windows, Linux и macOS - браузер не нужен.**
 Вставьте ссылку на YouTube, TikTok, Twitch или Vimeo (или mp4) и смотрите в маленьком окне поверх остальных.
 Панели управления выезжают *рядом* с видео, а не закрывают его.
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![macOS](https://img.shields.io/badge/macOS-Intel%20%7C%20Apple%20Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-FFD43B?style=for-the-badge&logo=python&logoColor=black)
 ![WebView2](https://img.shields.io/badge/WebView2-pywebview-35E8E0?style=for-the-badge&logoColor=black)
 ![Interface](https://img.shields.io/badge/Интерфейс-русский-FF4B3A?style=for-the-badge)
@@ -58,6 +60,15 @@
 > нажмите **Подробнее  Выполнить в любом случае**.
 > Тихая установка: `MiniPlayer_Setup.exe --silent` · удаление: `uninstall.exe --uninstall`.
 
+### Linux и macOS
+
+Эти сборки используют Qt WebEngine вместо WebView2 (те же функции и интерфейс).
+
+- **Linux:** скачайте `.tar.gz` или `.AppImage` из релизов. Для AppImage: `chmod +x MiniPlayer*.AppImage && ./MiniPlayer*.AppImage`. В Wayland приложение работает через XWayland.
+- **macOS:** откройте `.dmg` (Apple Silicon или Intel) и перетащите Mini Player в «Программы». Приложение не нотаризовано, поэтому при первом запуске нажмите на нём правой кнопкой и выберите **Открыть**.
+
+Сборки для Linux и macOS делает workflow GitHub Actions `.github/workflows/build.yml`; можно собрать и самостоятельно (см. ниже).
+
 ## Как устроено
 
 ```mermaid
@@ -88,6 +99,17 @@ python miniplayer.py
 
 Нужны Windows 10/11 и Python 3.12+.
 
+**Linux / macOS:**
+
+```bash
+pip install -r requirements-qt.txt
+python build_ui.py
+python miniplayer.py                 # запуск напрямую
+bash scripts/build_unix.sh           # или сборка (tar.gz на Linux, .app на macOS)
+```
+
+На Linux нужны стандартные библиотеки Qt/xcb (Debian и Ubuntu: `libxcb-cursor0 libxkbcommon-x11-0 libnss3`). Переменная `MP_QT=1` запускает Qt-вариант и на Windows.
+
 ## Устройство проекта
 
 | Путь | Что это |
@@ -104,9 +126,9 @@ python miniplayer.py
 
 ## Приватность и данные
 
-Всё хранится локально в `%APPDATA%\MiniPlayer`: настройки и история (`data.json`), профиль встроенного браузера (`web`),
+Всё хранится локально в `%APPDATA%\MiniPlayer` (Linux: `~/.local/share/MiniPlayer`, macOS: `~/Library/Application Support/MiniPlayer`): настройки и история (`data.json`), профиль встроенного браузера (`web`),
 журнал сбоев (`crash.log`). Сохранённые сеансы нескольких аккаунтов лежат в `accounts.bin` **в зашифрованном виде
-(DPAPI Windows - расшифровать может только ваша учётная запись)**. Никому не отправляйте этот файл.
+(DPAPI Windows - расшифровать может только ваша учётная запись; на Linux и macOS - Fernet, ключ в системной связке ключей или в файле с правами 0600)**. Никому не отправляйте этот файл.
 Приложение обращается только к сайтам, которые вы открываете (YouTube, TikTok, Twitch и т. д.), телеметрии нет.
 
 ## Замечания

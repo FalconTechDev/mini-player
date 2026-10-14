@@ -2,11 +2,13 @@
 
 <img src="docs/banner.png" alt="Mini Player" width="100%">
 
-**Floating video windows for Windows - no browser needed.**
+**Floating video windows for Windows, Linux and macOS - no browser needed.**
 Paste a YouTube, TikTok, Twitch or Vimeo link (or an mp4) and watch it in a small always-on-top window
 with control panels that slide out *beside* the video instead of covering it.
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![macOS](https://img.shields.io/badge/macOS-Intel%20%7C%20Apple%20Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-FFD43B?style=for-the-badge&logo=python&logoColor=black)
 ![WebView2](https://img.shields.io/badge/WebView2-pywebview-35E8E0?style=for-the-badge&logoColor=black)
 ![UI](https://img.shields.io/badge/UI%20language-Russian-FF4B3A?style=for-the-badge)
@@ -60,6 +62,15 @@ with control panels that slide out *beside* the video instead of covering it.
 > click **More info, then Run anyway**.
 > Silent install: `MiniPlayer_Setup.exe --silent` · uninstall: `uninstall.exe --uninstall`.
 
+### Linux and macOS
+
+These builds use Qt WebEngine instead of WebView2 (same features, same interface).
+
+- **Linux:** download the `.tar.gz` or the `.AppImage` from the releases page. For the AppImage run `chmod +x MiniPlayer*.AppImage && ./MiniPlayer*.AppImage`. On Wayland the app runs through XWayland.
+- **macOS:** open the `.dmg` (Apple Silicon or Intel) and drag Mini Player to Applications. The app is not notarized, so on first launch right-click it and choose **Open**.
+
+Linux and macOS builds are produced by the GitHub Actions workflow in `.github/workflows/build.yml`, or you can build them yourself (see below).
+
 ## How it works
 
 ```mermaid
@@ -90,6 +101,17 @@ python miniplayer.py
 
 Requires Windows 10/11 and Python 3.12+.
 
+**Linux / macOS:**
+
+```bash
+pip install -r requirements-qt.txt
+python build_ui.py
+python miniplayer.py                 # run directly
+bash scripts/build_unix.sh           # or build a bundle (tar.gz on Linux, .app on macOS)
+```
+
+Linux needs the usual Qt/xcb libraries (on Debian or Ubuntu: `libxcb-cursor0 libxkbcommon-x11-0 libnss3`). Setting `MP_QT=1` also runs the Qt backend on Windows.
+
 ## Project structure
 
 | Path | What it is |
@@ -106,9 +128,9 @@ Requires Windows 10/11 and Python 3.12+.
 
 ## Privacy and data
 
-Everything is stored locally in `%APPDATA%\MiniPlayer`: settings and history (`data.json`), the embedded browser profile
+Everything is stored locally in `%APPDATA%\MiniPlayer` (Linux: `~/.local/share/MiniPlayer`, macOS: `~/Library/Application Support/MiniPlayer`): settings and history (`data.json`), the embedded browser profile
 (`web`) and a crash log (`crash.log`). Saved sessions of multiple accounts live in `accounts.bin`, **encrypted with
-Windows DPAPI - only your Windows user can decrypt it**. Never share that file.
+Windows DPAPI - only your Windows user can decrypt it** (on Linux and macOS: Fernet, with the key kept in the system keyring or a `0600` key file). Never share that file.
 The app talks only to the sites you open (YouTube, TikTok, Twitch, …); it has no telemetry.
 
 ## Notes
