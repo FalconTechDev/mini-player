@@ -316,7 +316,7 @@ function bypassCard(){
  const busy=BP.state==='starting'||BP.state==='testing';
  const st=BP.on?(BP.msg||BPS[BP.state]||''):'Выключен.';
  return `<div class="scard p14" style="--ac:#ffc83d"><div class="sh" style="color:#ffc83d">РЕЖИМ ОБХОДА БЛОКИРОВОК</div>
-  <div class="srow" data-act="bypass" style="padding-top:0"><div class="x"><b>Обход блокировок только в этом приложении</b><small>Помогает открыть YouTube и Twitch там, где они замедлены или заблокированы. Остальные сайты (TikTok, Netflix и др.), другие программы и браузеры не затрагиваются. Основан на zapret (bol-van, MIT) и WinDivert.</small></div>${tg(!!BP.on,'#ffc83d')}</div>
+  <div class="srow" data-act="bypass" style="padding-top:0"><div class="x"><b>Обход блокировок только в этом приложении</b><small>Помогает открыть YouTube, Twitch и другие заблокированные сайты там, где они замедлены или заблокированы. TikTok и Netflix, а также другие программы и браузеры не затрагиваются. Основан на zapret (bol-van, MIT) и WinDivert.</small></div>${tg(!!BP.on,'#ffc83d')}</div>
   ${BP.on?`<div class="srow" style="cursor:default"><div class="x"><b>Состояние</b><small>${esc(st)}</small></div>${busy?'':'<div class="chip act" data-act="bprt">Подобрать заново</div>'}</div>`:`<div class="note" style="margin-top:6px">${esc(st)}</div>`}
   <div class="note">Нужны права администратора: запрос Windows появляется один раз за запуск приложения. Если обход не помогает, возможно, дело в блокировке по IP или DNS: такое режим не обходит.</div></div>`;
 }

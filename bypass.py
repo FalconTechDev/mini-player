@@ -38,21 +38,37 @@ STRATEGIES = [
 
 PROBE_HOSTS = ["www.youtube.com", "redirector.googlevideo.com", "www.twitch.tv", "usher.ttvnw.net"]
 
-# Обход применяется только к этим сайтам (YouTube и Twitch); остальные (TikTok, Netflix и др.) идут напрямую, как обычно.
-BYPASS_DOMAINS = ("youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com", "googleusercontent.com",
-                  "gstatic.com", "google.com", "googleapis.com", "twitch.tv", "ttvnw.net", "jtvnw.net", "twitchcdn.net",
-                  "twitchapps.com")
+# Эти сайты идут напрямую, без обхода (TikTok, Netflix): их он не касается. Всё остальное (YouTube, Twitch, их CDN,
+# реклама и скрипты Google) проходит через обход, иначе плееры зависают на заблокированных вспомогательных запросах.
+DIRECT_DOMAINS = ("tiktok.com", "tiktokcdn.com", "tiktokcdn-us.com", "tiktokv.com", "tiktokw.us", "byteoversea.com",
+                  "ibytedtos.com", "ibyteimg.com", "muscdn.com", "bytedance.com", "ttwstatic.com", "isnssdk.com",
+                  "netflix.com", "nflxvideo.net", "nflximg.net", "nflximg.com", "nflxso.net", "nflxext.com", "127.0.0.1", "localhost")
 
 
 def scoped(host):
     h = host.lower().rstrip(".")
-    return any(h == d or h.endswith("." + d) for d in BYPASS_DOMAINS)
+    return not any(h == d or h.endswith("." + d) for d in DIRECT_DOMAINS)
 
 WIN_FILTER = (
     "(outbound and tcp.DstPort==443 and tcp.SrcPort>=%d and tcp.SrcPort<=%d) or "
     "(inbound and tcp.SrcPort==443 and tcp.DstPort>=%d and tcp.DstPort<=%d)" % (PORT_LO, PORT_HI, PORT_LO, PORT_HI)
 )
 WIN_FILTER = "!impostor and !loopback and (%s)" % WIN_FILTER
+
+
+LOG_PATH = [None]
+
+
+def _log(msg):
+    """Короткий журнал ошибок прокси (bypass/proxy.log) для разбора, если что-то не открывается."""
+    try:
+        if LOG_PATH[0]:
+            if os.path.exists(LOG_PATH[0]) and os.path.getsize(LOG_PATH[0]) > 200000:
+                os.remove(LOG_PATH[0])
+            with open(LOG_PATH[0], "a", encoding="utf-8") as f:
+                f.write("%s %s" % (time.strftime("%H:%M:%S"), msg) + chr(10))
+    except Exception:
+        pass
 
 
 def supported():
@@ -118,6 +134,7 @@ class Proxy:
                     last = e
                     s.close()
                     break
+        _log("connect %s:%s failed: %s" % (host, port, last))
         raise last or OSError("connect failed")
 
     @staticmethod
@@ -315,6 +332,8 @@ def helper_main(parent_pid, workdir):
 class Bypass:
     def __init__(self, data_dir, settings_get, settings_set):
         self.dir = os.path.join(data_dir, "bypass")
+        os.makedirs(self.dir, exist_ok=True)
+        LOG_PATH[0] = os.path.join(self.dir, "proxy.log")
         self.get, self.set = settings_get, settings_set
         self.proxy = None
         self.state, self.msg, self.strategy = "off", "", None
