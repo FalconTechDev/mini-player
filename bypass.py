@@ -36,7 +36,7 @@ STRATEGIES = [
     ("Подмена с малым TTL", "--dpi-desync=fake --dpi-desync-ttl=5 --dpi-desync-fooling=md5sig"),
 ]
 
-PROBE_HOSTS = ["www.youtube.com", "redirector.googlevideo.com", "www.twitch.tv", "usher.ttvnw.net"]
+PROBE_HOSTS = ["www.youtube.com", "redirector.googlevideo.com"]          # базовая проверка: сайт и видеосервер
 
 # Эти сайты идут напрямую, без обхода (TikTok, Netflix): их он не касается. Всё остальное (YouTube, Twitch, их CDN,
 # реклама и скрипты Google) проходит через обход, иначе плееры зависают на заблокированных вспомогательных запросах.
@@ -207,7 +207,7 @@ class Proxy:
             pass
 
 
-def probe(host, proxy_port, timeout=7.0):
+def probe(host, proxy_port, timeout=3.5):
     """Проверяет, что к host:443 через прокси проходит TLS-рукопожатие и приходит ответ HTTP."""
     s = None
     try:
@@ -249,7 +249,7 @@ def score(proxy_port, hosts=PROBE_HOSTS):
         t.start()
         ths.append(t)
     for t in ths:
-        t.join(12)
+        t.join(5)
     return sum(1 for v in res.values() if v), res
 
 
@@ -440,7 +440,7 @@ class Bypass:
                         self.state, self.msg = "failed", "Помощник не запустился"
                         return
                     time.sleep(0.3)
-            th.join(20)
+            th.join(6)
             base, det = res.get("r", (0, {}))
             _log("baseline %d/%d %s" % (base, len(PROBE_HOSTS), det))
             if not self.want:
@@ -471,7 +471,7 @@ class Bypass:
             self.msg = "Проверка: %s" % STRATEGIES[i][0]
             self._cmd(strategy=i)
             self.proxy.desync = True
-            time.sleep(1.5)
+            time.sleep(0.8)
             st = self._status()
             if not st.get("running"):
                 _log("strategy %d not running: %s" % (i, st))
