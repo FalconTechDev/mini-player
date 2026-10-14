@@ -410,7 +410,8 @@ class Bypass:
             port = self.start_proxy()
             self._cmd(strategy=None) if self.helper_alive() else None
             time.sleep(0.5) if self.helper_alive() else None
-            base, _ = score(port)
+            base, det = score(port)
+            _log("baseline %d/%d %s helper=%s" % (base, len(PROBE_HOSTS), det, self.helper_alive()))
             if base == len(PROBE_HOSTS):
                 self.state, self.msg, self.strategy = "unneeded", "Сайты и так доступны, обход не нужен", None
                 return
@@ -426,6 +427,7 @@ class Bypass:
                 script = os.path.abspath(sys.argv[0])
                 exe, params = sys.executable, '"%s" %s %d "%s"' % (script, HELPER_FLAG, os.getpid(), self.dir)
             rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, None, 0)
+            _log("runas rc=%s exe=%s params=%s" % (rc, exe, params))
             if rc <= 32:
                 self.state, self.msg = "denied", "Права администратора не выданы, обход выключен"
                 return
@@ -437,6 +439,7 @@ class Bypass:
                 time.sleep(0.3)
             self._select(base)
         except Exception as e:
+            _log("error: %r" % e)
             self.state, self.msg = "failed", str(e)
         finally:
             self.busy = False
@@ -459,8 +462,10 @@ class Bypass:
             time.sleep(1.5)
             st = self._status()
             if not st.get("running"):
+                _log("strategy %d not running: %s" % (i, st))
                 continue
-            sc, _ = score(self.proxy.port)
+            sc, det = score(self.proxy.port)
+            _log("strategy %d (%s): %d/%d %s" % (i, STRATEGIES[i][0], sc, len(PROBE_HOSTS), det))
             if sc > best:
                 best, best_i = sc, i
             if sc == len(PROBE_HOSTS):

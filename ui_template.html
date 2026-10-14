@@ -413,7 +413,7 @@ document.addEventListener('click',async e=>{
  else if(a==='pvfav'){S=await api.fav_link(q.trim());render()}
  else if(a==='layout'){S=await api.ui_setting('layout',d.v);render()}
  else if(a==='ui'){S=await api.ui_setting(d.k,!S.settings.ui[d.k]);render()}
- else if(a==='bypass'){api.bypass_set(!BP.on)}
+ else if(a==='bypass'){const on=!BP.on;BP=Object.assign({},BP,{on:on,state:on?'starting':'off',msg:on?'Запуск':''});render();api.bypass_set(on);setTimeout(bpRefresh,500)}
  else if(a==='bprt'){api.bypass_retest();setTimeout(bpRefresh,300)}
  else if(a==='top'){S=await api.setting('on_top',!S.settings.on_top);render()}
  else if(a==='size'){S=await api.setting('size',d.v);render()}
