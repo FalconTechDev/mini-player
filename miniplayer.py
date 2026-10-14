@@ -1112,7 +1112,7 @@ def restart_app():
     if BYPASS_OBJ:
         BYPASS_OBJ[0].stop()
     args = [sys.executable] + (sys.argv[1:] if getattr(sys, "frozen", False) else sys.argv)
-    subprocess.Popen(args, env=dict(os.environ, MP_RESTART="1"))
+    subprocess.Popen(args, env=dict(os.environ, MP_RESTART="1", PYINSTALLER_RESET_ENVIRONMENT="1"))   # новая копия распаковывается сама, а не берёт папку старой
     os._exit(0)
 
 
@@ -1436,4 +1436,4 @@ if __name__ == "__main__":
         import subprocess
         _lock.close()
         time.sleep(3)
-        subprocess.Popen([sys.executable] + sys.argv, env=dict(os.environ, MP_TRY=str(tries + 1)))
+        subprocess.Popen([sys.executable] + sys.argv, env=dict(os.environ, MP_TRY=str(tries + 1), PYINSTALLER_RESET_ENVIRONMENT="1"))
