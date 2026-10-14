@@ -3,8 +3,8 @@ import json, os
 here = os.path.dirname(os.path.abspath(__file__))
 import base64, io
 from PIL import Image
-icons = {n: open(f"{here}/icons/svg/{n}.svg", encoding="utf-8").read() for n in ["youtube", "tiktok", "twitch", "other", "fav", "settings"]}
-for n in ["youtube", "tiktok", "twitch", "other", "fav", "settings"]:        # готовые картинки (нарисованные иконки) вместо SVG
+icons = {n: open(f"{here}/icons/svg/{n}.svg", encoding="utf-8").read() for n in ["youtube", "netflix", "tiktok", "twitch", "other", "fav", "settings"]}
+for n in ["youtube", "netflix", "tiktok", "twitch", "other", "fav", "settings"]:        # готовые картинки (нарисованные иконки) вместо SVG
     clay = f"{here}/icons/{n}_clay.png"
     if os.path.exists(clay):
         buf = io.BytesIO()

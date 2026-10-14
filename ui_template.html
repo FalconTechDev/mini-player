@@ -136,6 +136,12 @@ const PL={
   warn:'Это не ссылка на YouTube.',search_url:q=>'https://www.youtube.com/results?search_query='+enc(q),realSearch:true,live:true,
   quick:[['Тренды','https://www.youtube.com/feed/trending'],['Главная','https://www.youtube.com'],['Подписки','https://www.youtube.com/feed/subscriptions']],quickLab:'ОТКРЫТЬ YOUTUBE ЦЕЛИКОМ',
   accText:'Нужен для лайков, комментариев, сообщений и подписок. Смотреть можно и без него.'},
+ nf:{n:'Netflix',tab:'Netflix',c:'#e50914',ic:'netflix',mode:'netflix',plat:['Netflix'],noacc:true,
+  lead:{link:'Ссылка на фильм или сериал откроет Netflix в окне. Пустое поле откроет главную.',search:'Введи запрос: откроется поиск Netflix.'},
+  ph:{link:'https://www.netflix.com/title/…',search:'Что искать на Netflix…'},seg:'ССЫЛКА',
+  test:q=>/netflix\.com/i.test(q),
+  chip:q=>/\/watch\//i.test(q)?['ПРОСМОТР','Откроется в окне']:['ТАЙТЛ','Откроется страницей Netflix'],warn:'Это не ссылка на Netflix.',search_url:q=>'https://www.netflix.com/search?q='+enc(q),
+  quick:[['Главная','https://www.netflix.com/browse'],['Мой список','https://www.netflix.com/browse/my-list'],['Новое','https://www.netflix.com/latest']],quickLab:'ОТКРЫТЬ NETFLIX ЦЕЛИКОМ'},
  tt:{n:'TikTok',tab:'TikTok',c:'#35e8e0',ic:'tiktok',mode:'tiktok',plat:['TikTok'],login:'https://www.tiktok.com/login',
   lead:{link:'Ссылка на видео откроет плеер, @имя — страницу автора.',search:'Введи запрос: откроется поиск TikTok в окне.'},
   ph:{link:'Ссылка на TikTok или @имя',search:'Что искать в TikTok…'},seg:'ССЫЛКА',
@@ -158,12 +164,12 @@ const PL={
   warn:'Это не ссылка.',search_url:q=>(ENGINES[S.settings.ui.engine]||ENGINES.google)[1]+enc(q),
   quick:[['Vimeo','https://vimeo.com'],['Dailymotion','https://www.dailymotion.com']],quickLab:'БЫСТРЫЙ ПЕРЕХОД'}
 };
-const ORDER=['yt','tt','tw','ot'];
+const ORDER=['yt','nf','tt','tw','ot'];
 const FEEDS=[['Для вас','Рекомендации','https://www.tiktok.com/foryou'],['Друзья','Видео друзей','https://www.tiktok.com/friends'],['Подписки','Ваши подписки','https://www.tiktok.com/following'],['LIVE','Прямые эфиры','https://www.tiktok.com/live']];
 const PRE={min:{hide_desc:1,hide_author:1,hide_ads:1,no_frame:1,fill_crop:1,fit_window:1},mid:{hide_desc:1,hide_author:0,hide_ads:1,no_frame:1,fill_crop:0,fit_window:0},full:{hide_desc:0,hide_author:0,hide_ads:0,no_frame:0,fill_crop:0,fit_window:0}};
 const TOG=[['hide_desc','Скрыть описание','Текст и хэштеги под видео'],['hide_author','Скрыть ник автора','Имя автора на видео'],['hide_ads','Скрывать рекламу и LIVE','Такие ролики пропускаются в ленте'],['no_frame','Без рамки вокруг видео','Убирает поля, скругления и подложку'],['fill_crop','Растянуть на всё окно','Края видео могут обрезаться'],['fit_window','Подгонять окно под видео','Высота окна под пропорции ролика']];
 
-const HOME={yt:'https://www.youtube.com',tt:'https://www.tiktok.com/foryou',tw:'https://www.twitch.tv'};
+const HOME={yt:'https://www.youtube.com',nf:'https://www.netflix.com/browse',tt:'https://www.tiktok.com/foryou',tw:'https://www.twitch.tv'};
 let api,S={history:[],settings:{on_top:true,size:'M',tiktok:{},ui:{layout:'tabs',default_search:false,engine:'google'}}};
 let sr=null,srFor='',searched=false,srTimer=0,srBusy=false,srLoadingAll=false;
 let scr='yt',mode={},q='',histOpen=false,accOpen=false,pv=null,pvFor='',msg='',pvTimer=0,lastPlat='yt';
@@ -402,7 +408,7 @@ window.addEventListener('focus',()=>{if(!api)return;window.__mpSync();if(ORDER.i
 window.addEventListener('pywebviewready',async()=>{
  api=pywebview.api;S=await api.state();setTimeout(()=>refreshLogin(),600);
  const c=S.settings.ui.auto_paste?(await api.clipboard()).trim():'';
- const k=/youtu/i.test(c)?'yt':/tiktok/i.test(c)?'tt':/twitch\.tv/i.test(c)?'tw':/vimeo/i.test(c)?'ot':null;
+ const k=/youtu/i.test(c)?'yt':/tiktok/i.test(c)?'tt':/twitch\.tv/i.test(c)?'tw':/netflix\.com/i.test(c)?'nf':/vimeo/i.test(c)?'ot':null;
  if(/^https?:\/\//i.test(c)&&k){scr=k;q=c;doPreview()}
  render();const i=$('#q');if(i)i.focus();
 });

@@ -1099,6 +1099,8 @@ class MainApi:
         link = link.strip()
         if mode == "twitch" and link and "." not in link:
             link = "https://www.twitch.tv/" + link.lstrip("@/")
+        if mode == "netflix" or "netflix.com" in link.lower():
+            return self.netflix(link)
         if mode == "tiktok" and link.startswith("@"):
             link = "https://www.tiktok.com/" + link
             self.site(link, True)
@@ -1118,6 +1120,27 @@ class MainApi:
         save(d)
         open_player(info, geom)
         return {"ok": True, "state": d}
+
+    def netflix(self, link):
+        link = link.strip()
+        if not link:
+            link = "https://www.netflix.com/browse"
+        elif not re.match(r"https?://", link):
+            link = "https://" + link
+        if "netflix.com" not in urlparse(link).netloc.lower():
+            return {"error": "Это не ссылка на Netflix"}
+        d = load()
+        canon = link.split("#")[0]
+        if re.search(r"/(title|watch)/\d+", canon):
+            canon = canon.split("?")[0]
+            old = next((h for h in d["history"] if h["url"] == canon), {})
+            d["history"] = [h for h in d["history"] if h["url"] != canon]
+            d["history"].insert(0, dict(url=canon, title=canon.rsplit("/", 1)[-1] and "Netflix " + canon.rsplit("/", 1)[-1],
+                                        platform="Netflix", thumb="", fav=old.get("fav", False), ts=int(time.time()),
+                                        pos=0, dur=0, pinned=old.get("pinned", False)))
+            save(d)
+        self.site(link)
+        return {"ok": True, "state": load()}
 
     def site(self, url, vertical=False):
         st = load()["settings"]
