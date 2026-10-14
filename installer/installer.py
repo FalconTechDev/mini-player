@@ -11,7 +11,19 @@ import urllib.request
 import winreg
 
 APP = "Mini Player"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+# Что нового по версиям (показывается при обновлении: все версии новее установленной)
+CHANGES = [
+    ("1.0.0", ["Первый выпуск: мини-плеер для YouTube, TikTok, Twitch, Vimeo, mp4 и любых сайтов",
+               "Панели выезжают снаружи окна, поиск, аккаунты, «Продолжить просмотр»",
+               "Установщик, ярлыки и удаление"]),
+    ("1.0.1", ["Исправлено масштабирование интерфейса на экранах со шкалой 125%, 150% и больше: панели больше не обрезаются"]),
+    ("1.1.0", ["Новая вкладка Netflix после YouTube (ссылки на фильмы и сериалы, кнопка «Войти»)",
+               "Режим обхода блокировок в настройках: работает только внутри приложения, включается без перезапуска",
+               "Права администратора для обхода запрашиваются один раз за запуск и только если режим включён",
+               "Установщик теперь определяет установленную версию и предлагает обновление со списком изменений",
+               "Исправлен вылет при перезапуске приложения"]),
+]
 EXE = "MiniPlayer.exe"
 UNINST_ID = os.environ.get("MP_INSTALL_KEY", "MiniPlayer")
 UNINST_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\%s" % UNINST_ID
@@ -91,6 +103,44 @@ def make_shortcuts(install_dir, desktop, startmenu):
 def remove_shortcuts():
     ps("foreach($f in 'Desktop','Programs'){$p=Join-Path ([Environment]::GetFolderPath($f)) '%s.lnk';"
        "if(Test-Path $p){Remove-Item $p -Force}}" % LNK_NAME)
+
+
+def vtuple(v):
+    try:
+        return tuple(int(x) for x in str(v).split("."))
+    except ValueError:
+        return (0,)
+
+
+def installed_info():
+    """-> (версия, папка) установленного приложения или None."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINST_KEY) as k:
+            ver = winreg.QueryValueEx(k, "DisplayVersion")[0]
+            d = winreg.QueryValueEx(k, "InstallLocation")[0]
+    except OSError:
+        return None
+    if not d or not os.path.exists(os.path.join(d, EXE)):
+        return None
+    return ver, d
+
+
+def changes_since(ver):
+    return [(v, items) for v, items in CHANGES if vtuple(v) > vtuple(ver)]
+
+
+def shortcut_exists(folder):
+    r = ps("Test-Path (Join-Path ([Environment]::GetFolderPath('%s')) '%s.lnk')" % (folder, LNK_NAME))
+    return r.stdout.decode(errors="ignore").strip().lower() == "true"
+
+
+def autostart_set():
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
+            winreg.QueryValueEx(k, RUN_NAME)
+            return True
+    except OSError:
+        return False
 
 
 def dir_size_kb(path):
@@ -285,7 +335,8 @@ def gui(args):
         root.mainloop()
         return
 
-    # --- установка
+    # --- установка или обновление
+    inst = installed_info()
     v_dir = tk.StringVar(value=args["dir"])
     v_desk, v_menu = tk.BooleanVar(value=args["desktop"]), tk.BooleanVar(value=args["startmenu"])
     v_auto, v_launch = tk.BooleanVar(value=args["autostart"]), tk.BooleanVar(value=True)
@@ -309,19 +360,23 @@ def gui(args):
     row = tk.Frame(body, bg=BG)
     row.pack(side="bottom", fill="x", pady=8)
 
-    def go():
-        target = v_dir.get().strip()
+    def go(target=None, desk=None, menu=None, auto=None, launch=None, title="Устанавливаю…"):
+        target = (target or v_dir.get()).strip()
         if not target:
             return
+        desk = v_desk.get() if desk is None else desk
+        menu = v_menu.get() if menu is None else menu
+        auto = v_auto.get() if auto is None else auto
+        launch = v_launch.get() if launch is None else launch
         clear()
-        label("Устанавливаю…", bold=True).pack(anchor="w", pady=(0, 10))
+        label(title, bold=True).pack(anchor="w", pady=(0, 10))
         prog = ttk.Progressbar(body, style="Y.Horizontal.TProgressbar", length=500, mode="determinate")
         prog.pack(fill="x")
         tk.Label(body, textvariable=status, bg=BG, fg=DIM, font=F, anchor="w", wraplength=500, justify="left").pack(anchor="w", pady=10)
 
         def work():
             try:
-                wv_ok = do_install(target, v_desk.get(), v_menu.get(), v_auto.get(),
+                wv_ok = do_install(target, desk, menu, auto,
                                    lambda m: root.after(0, lambda: status.set(m)),
                                    lambda v: root.after(0, lambda: prog.configure(value=v)))
             except Exception as e:
@@ -329,18 +384,50 @@ def gui(args):
                 return
 
             def finish():
-                msg = "Mini Player установлен."
+                msg = "Mini Player обновлён до версии %s." % VERSION if title.startswith("Обновляю") else "Mini Player установлен."
                 if not wv_ok:
                     msg += ("\n\nНе удалось поставить среду WebView2 (нет интернета или отказ в доступе). Приложению она нужна: "
                             "скачайте «WebView2 Runtime» на сайте Microsoft и запустите установщик ещё раз.")
                 messagebox.showinfo(APP, msg)
-                if v_launch.get():
+                if launch:
                     subprocess.Popen([os.path.join(target, EXE)], cwd=target)
                 root.destroy()
             root.after(0, finish)
         threading.Thread(target=work, daemon=True).start()
     button(row, "Установить", go, True).pack(side="right")
     button(row, "Отмена", root.destroy).pack(side="right", padx=8)
+
+    if inst:                                                 # уже установлено: проверяем версию
+        iv, idir = inst
+        clear()
+        newer = vtuple(iv) > vtuple(VERSION)
+        same = vtuple(iv) == vtuple(VERSION)
+        if newer:
+            label("Установлена более новая версия", bold=True).pack(anchor="w")
+            label("У вас %s, а этот установщик содержит %s. Обновлять не нужно." % (iv, VERSION), DIM).pack(anchor="w", pady=(4, 10))
+        elif same:
+            label("Установлена последняя версия (%s)" % iv, bold=True).pack(anchor="w")
+            label("Обновлять не нужно. Можно переустановить, если что-то сломалось.", DIM).pack(anchor="w", pady=(4, 10))
+        else:
+            label("Доступно обновление: %s → %s" % (iv, VERSION), bold=True).pack(anchor="w")
+            label("Что нового:", DIM).pack(anchor="w", pady=(4, 4))
+            box = tk.Text(body, bg=PANEL, fg=TXT, relief="flat", font=F, wrap="word", height=11, padx=10, pady=8,
+                          highlightbackground="#000", highlightthickness=2)
+            for v, items in reversed(changes_since(iv)):
+                box.insert("end", "Версия %s" % v + chr(10), "h")
+                for it in items:
+                    box.insert("end", "  • %s" % it + chr(10))
+                box.insert("end", chr(10))
+            box.tag_configure("h", foreground=ACC, font=("Segoe UI", 10, "bold"))
+            box.configure(state="disabled")
+            box.pack(fill="both", expand=True)
+        r2 = tk.Frame(body, bg=BG)
+        r2.pack(side="bottom", fill="x", pady=8)
+
+        def upd():
+            go(idir, shortcut_exists("Desktop"), shortcut_exists("Programs"), autostart_set(), True, "Обновляю до %s…" % VERSION)
+        button(r2, "Переустановить" if (same or newer) else "Обновить", upd, not (same or newer)).pack(side="right")
+        button(r2, "Закрыть", root.destroy).pack(side="right", padx=8)
     root.mainloop()
 
 
@@ -350,6 +437,12 @@ def main():
         if args["uninstall"]:
             do_uninstall(args["remove_data"])
         else:
+            inst = installed_info()
+            if inst and not any(a.lower() == "--dir" for a in sys.argv[1:]):       # уже установлено: обновляем на месте
+                if vtuple(inst[0]) >= vtuple(VERSION):
+                    return
+                args["dir"] = inst[1]
+                args["desktop"], args["startmenu"], args["autostart"] = shortcut_exists("Desktop"), shortcut_exists("Programs"), autostart_set()
             do_install(args["dir"], args["desktop"], args["startmenu"], args["autostart"])
             if args["launch"]:
                 subprocess.Popen([os.path.join(args["dir"], EXE)], cwd=args["dir"])
