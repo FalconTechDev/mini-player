@@ -36,7 +36,17 @@ STRATEGIES = [
     ("Подмена с малым TTL", "--dpi-desync=fake --dpi-desync-ttl=5 --dpi-desync-fooling=md5sig"),
 ]
 
-PROBE_HOSTS = ["www.youtube.com", "redirector.googlevideo.com", "www.tiktok.com", "www.twitch.tv", "www.netflix.com"]
+PROBE_HOSTS = ["www.youtube.com", "redirector.googlevideo.com", "www.twitch.tv", "usher.ttvnw.net"]
+
+# Обход применяется только к этим сайтам (YouTube и Twitch); остальные (TikTok, Netflix и др.) идут напрямую, как обычно.
+BYPASS_DOMAINS = ("youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com", "googleusercontent.com",
+                  "gstatic.com", "google.com", "googleapis.com", "twitch.tv", "ttvnw.net", "jtvnw.net", "twitchcdn.net",
+                  "twitchapps.com")
+
+
+def scoped(host):
+    h = host.lower().rstrip(".")
+    return any(h == d or h.endswith("." + d) for d in BYPASS_DOMAINS)
 
 WIN_FILTER = (
     "(outbound and tcp.DstPort==443 and tcp.SrcPort>=%d and tcp.SrcPort<=%d) or "
@@ -80,7 +90,14 @@ class Proxy:
     def _connect(self, host, port):
         infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
         last = None
+        use_range = scoped(host)
         for _fam, _t, _p, _cn, addr in infos:
+            if not use_range:                                  # не наш сайт: обычное соединение, winws его не видит
+                try:
+                    return socket.create_connection(addr, timeout=10)
+                except OSError as e:
+                    last = e
+                    continue
             for _ in range(60):
                 with self._lock:
                     sp = self._next
