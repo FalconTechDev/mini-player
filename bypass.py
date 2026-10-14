@@ -417,11 +417,8 @@ class Bypass:
             if self.helper_alive():
                 self._cmd(strategy=None)
                 time.sleep(0.5)
-            res = {}
-            th = threading.Thread(target=lambda: res.update(r=score(port)), daemon=True)
-            th.start()                                       # проверка сайтов идёт параллельно запросу прав
             if not self.helper_alive():
-                self.msg = "Подтвердите запрос Windows о правах администратора"
+                self.msg = "Жду подтверждения прав администратора (UAC)…"
                 self._prepare_files()
                 if getattr(sys, "frozen", False):
                     exe, params = sys.executable, '%s %d "%s"' % (HELPER_FLAG, os.getpid(), self.dir)
@@ -433,15 +430,15 @@ class Bypass:
                 if rc <= 32:
                     self.state, self.msg = "denied", "Права администратора не выданы, обход выключен"
                     return
-                self.msg = "Запускаю помощника"
+                self.msg = "Права подтверждены, запускаю помощника…"
                 t0 = time.time()
                 while not self.helper_alive():
                     if time.time() - t0 > 40:
                         self.state, self.msg = "failed", "Помощник не запустился"
                         return
                     time.sleep(0.3)
-            th.join(6)
-            base, det = res.get("r", (0, {}))
+            self.msg = "Проверяю доступность сайтов…"
+            base, det = score(port)                          # проверки начинаются только после подтверждения прав
             _log("baseline %d/%d %s" % (base, len(PROBE_HOSTS), det))
             if not self.want:
                 return
