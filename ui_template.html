@@ -1,0 +1,410 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:#26211c;color:#f3ece0;font-family:"Segoe UI",sans-serif;overflow:hidden;user-select:none}
+input::placeholder{color:#8a806f}
+#app{height:100vh;display:flex}
+#app.tabs{flex-direction:column}#app.rail{flex-direction:row}
+/* навигация */
+.tabs-bar{display:flex;background:#1b1814;border-bottom:3px solid #000;flex:none;overflow:hidden}
+.tab{display:flex;align-items:center;gap:10px;padding:8px 16px;border-right:3px solid #000;cursor:pointer;font:900 13px "Segoe UI";white-space:nowrap;color:#f3ece0}
+.tab img{width:36px;height:36px}
+.tab.sys{border-right:0;border-left:3px solid #000;padding:8px 12px}
+.tab:hover{background:#2e2a22}
+.rail-bar{width:90px;flex:none;background:#1b1814;border-right:3px solid #000;padding:10px 0;display:flex;flex-direction:column;align-items:center;gap:8px}
+.rb{padding:4px;cursor:pointer;border:3px solid transparent}
+.rb img{width:48px;height:48px;display:block}
+.sp{flex:1}
+/* шапка режима */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.plate{border-bottom:3px solid #000;padding:14px 20px 16px;color:#000;flex:none;box-shadow:inset 0 4px 0 rgba(255,255,255,.35),inset 0 -6px 0 rgba(0,0,0,.2)}
+.plate.flat{padding:16px 20px;font:900 24px "Segoe UI"}
+.ph{display:flex;align-items:center;gap:12px}
+.ph img{width:60px;height:60px}
+.ph h1{font:900 24px "Segoe UI";letter-spacing:-.5px}
+.ph p{font:700 12px "Segoe UI"}
+.acc{position:relative;z-index:20;flex:none}
+.accb{display:flex;align-items:center;gap:8px;cursor:pointer;border:3px solid #000;background:#14110e;box-shadow:3px 3px 0 #000;padding:3px 10px 3px 3px;color:#f3ece0}
+.av{width:30px;height:30px;border:2px solid #000;display:grid;place-items:center;font:900 13px "Segoe UI";color:#000;background:#6b6252}
+.accb span{font:900 12px "Segoe UI";white-space:nowrap}
+.pop{position:absolute;right:0;top:calc(100% + 8px);width:230px;background:#26211c;border:3px solid #000;box-shadow:6px 6px 0 #000;color:#f3ece0}
+.pop p{padding:12px 12px 0;font:600 12px "Segoe UI";color:#a99f8e;line-height:1.4}
+.pop .btn{margin:10px 12px 12px}
+/* командная строка */
+.cmdw{position:relative;margin-top:14px;z-index:10}
+.cmd{display:flex;border:3px solid #000;background:#14110e;box-shadow:5px 5px 0 #000;color:#f3ece0}
+.segs{display:flex;border-right:3px solid #000;flex:none}
+.segs div{padding:11px 14px;cursor:pointer;font:900 12px "Segoe UI";background:#14110e;color:#a99f8e}
+.segs div.on{background:#f3ece0;color:#000}
+.cmd input{flex:1;min-width:0;background:none;border:0;outline:0;color:#f3ece0;padding:0 14px;font:700 14px "Segoe UI";user-select:text}
+.cb{display:grid;place-items:center;border-left:3px solid #000;cursor:pointer}
+.cb.hist{width:44px}.cb.hist.on{background:#ffc83d;color:#000}
+.cb.paste{padding:11px 14px;font:900 12px "Segoe UI";background:#f3ece0;color:#000}
+.cb.go{padding:11px 18px;font:900 13px "Segoe UI";background:#000;color:#f3ece0;white-space:nowrap;flex:none;border-left:0}
+.cb:hover,.segs div:hover{filter:brightness(1.12)}
+.hd{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#26211c;border:3px solid #000;box-shadow:6px 6px 0 #000;color:#f3ece0;max-height:260px;overflow:auto}
+.hd .h{display:flex;padding:8px 12px;background:#1b1814;border-bottom:3px solid #000;font:900 11px "Segoe UI";letter-spacing:1px}
+.hd .h u{color:#a99f8e;cursor:pointer;text-underline-offset:3px;font-weight:700}
+.hi{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:3px dashed rgba(255,255,255,.12);cursor:pointer}
+.hi:hover{background:#2e2a22}
+.th{background:#14110e center/cover;border:2px solid #000;flex:none}
+.hi .m{flex:1;min-width:0}.hi b{display:block;font:800 13px "Segoe UI";white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hi small{font:700 11px "Segoe UI";color:#a99f8e}
+.mini{padding:4px 10px;background:#f3ece0;color:#000;border:2px solid #000;font:900 11px "Segoe UI"}
+.mini.dk{background:#14110e;color:#f3ece0;padding:4px 8px}
+.stat{min-height:24px;margin-top:10px;display:flex;align-items:center;gap:10px;font:800 12px "Segoe UI";flex-wrap:wrap}
+.chip{background:#000;padding:3px 9px}
+.chip.act{cursor:pointer;color:#f3ece0}
+/* контент */
+.body{flex:1;min-height:0;overflow:auto;padding:14px 20px 16px;display:flex;flex-direction:column;gap:16px}
+.lab{font:900 11px "Segoe UI";letter-spacing:1px;color:#a99f8e;margin-bottom:8px}
+.quick{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.quick .lab{margin:0 4px 0 0;white-space:nowrap}
+.qb{padding:6px 12px;background:#1b1814;border:3px solid #000;box-shadow:3px 3px 0 #000;font:800 12px "Segoe UI";white-space:nowrap;cursor:pointer;color:#f3ece0}
+.qb:hover,.btn:hover,.card .acts div:hover{transform:translate(-1px,-1px)}
+.qb:active,.btn:active{transform:translate(3px,3px);box-shadow:none}
+.pv{display:flex;background:#3a342c;border:3px solid #000;box-shadow:5px 5px 0 #000}
+.pv .im{flex:none;background:#14110e center/cover;border-right:3px solid #000}
+.pv .tx{flex:1;min-width:0;padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between;gap:8px}
+.pv b{font:800 14px "Segoe UI";line-height:1.3;display:block}.pv small{font:700 12px "Segoe UI";color:#a99f8e;display:block;margin-top:3px}
+.acts{display:flex;gap:8px}
+.btn{padding:6px 14px;cursor:pointer;background:#f3ece0;color:#000;border:2px solid #000;font:900 11px "Segoe UI";white-space:nowrap;text-align:center}
+.btn.big{padding:10px;border:3px solid #000;box-shadow:3px 3px 0 #000;font-size:13px}
+.btn.fv{background:#14110e;color:#f3ece0;padding:6px 10px}.btn.fv.on{background:#ffc83d;color:#000}
+.prog{position:absolute;left:0;right:0;bottom:0;height:6px;background:#000}.prog i{display:block;height:100%}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:14px}
+.card{background:#3a342c;border:3px solid #000;box-shadow:4px 4px 0 #000;display:flex;flex-direction:column}
+.card .im{height:96px;background:#14110e center/cover;border-bottom:3px solid #000;position:relative}
+.card .ibw{position:absolute;right:6px;top:6px;display:flex;gap:4px}
+.ib{width:26px;height:26px;display:grid;place-items:center;cursor:pointer;border:2px solid #000;background:#14110e;color:#f3ece0;box-shadow:2px 2px 0 #000;font:900 12px "Segoe UI"}
+.ib:hover{transform:translate(-1px,-1px)}.ib.on{background:#ffc83d;color:#000}
+.ib svg{display:block}
+.card .im span.d{left:auto;top:auto;right:6px;bottom:6px}
+.card .im span{position:absolute;left:6px;top:6px;background:#000;font:800 10px "Segoe UI";padding:2px 6px}
+.card .t{padding:8px 10px;flex:1;font:800 13px "Segoe UI";line-height:1.3;word-break:break-word}
+.card .t small{display:block;font:700 11px "Segoe UI";color:#a99f8e;margin-top:3px}
+.card .acts{display:flex;gap:0;border-top:3px solid #000}
+.card .acts div{padding:7px 10px;cursor:pointer;font:900 11px "Segoe UI";text-align:center}
+.card .acts .p{flex:1;background:#f3ece0;color:#000}
+.card .acts .f{border-left:3px solid #000;background:#14110e}.card .acts .f.on{background:#ffc83d;color:#000}
+.empty{border:3px dashed #6b6252;padding:28px;text-align:center;font:800 13px "Segoe UI";color:#a99f8e}
+.feeds{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.feed{padding:10px 12px;cursor:pointer;background:#1b1814;border:3px solid #000;box-shadow:3px 3px 0 #000}
+.feed b{display:block;font:900 13px "Segoe UI"}.feed small{font:600 11px "Segoe UI";color:#a99f8e}
+.feed:hover{transform:translate(-1px,-1px)}
+/* настройки */
+.scard{background:#3a342c;border:3px solid #000;box-shadow:5px 5px 0 #000;padding:4px 16px}
+.scard.p14{padding:14px 16px}
+.sh{font:900 12px "Segoe UI";letter-spacing:1.2px;color:#b4b4ff;margin-bottom:10px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.opt{cursor:pointer;border:3px solid #000;padding:10px;background:#26211c;box-shadow:3px 3px 0 #000}
+.opt.on{background:#b4b4ff;color:#000}
+.opt .mk{height:46px;border:3px solid #000;background:#26211c;display:flex}
+.opt .mk.c{flex-direction:column}
+.opt .mk i{background:#1b1814;border:0 solid #000}
+.opt b{display:block;font:900 13px "Segoe UI";margin-top:8px}.opt small{font:600 11px "Segoe UI"}
+.srow{display:flex;align-items:center;gap:12px;padding:12px 0;cursor:pointer;border-bottom:3px dashed rgba(255,255,255,.14)}
+.srow:last-child{border-bottom:0}
+.srow .x{flex:1}.srow b{display:block;font:800 14px "Segoe UI"}.srow small{display:block;font:600 12px "Segoe UI";color:#a99f8e}
+.tg{width:48px;height:28px;border:3px solid #000;background:#14110e;position:relative;flex:none}
+.tg i{position:absolute;top:2px;left:2px;width:14px;height:14px;background:#f3ece0;border:3px solid #000;content:"";box-sizing:content-box}
+.tg.on{background:var(--ac,#b4b4ff)}.tg.on i{left:20px}
+.sg{display:flex;border:3px solid #000;box-shadow:3px 3px 0 #000}
+.sg div{padding:5px 12px;cursor:pointer;background:#3a342c;border-right:3px solid #000;font:800 11px "Segoe UI";white-space:nowrap}
+.sg div:last-child{border-right:0}.sg div.on{background:var(--ac,#b4b4ff);color:#000}
+.note{font:600 12px "Segoe UI";color:#a99f8e;line-height:1.5}
+::-webkit-scrollbar{width:10px;background:#1b1814}::-webkit-scrollbar-thumb{background:#3a342c;border:2px solid #000}
+</style></head><body><div id="app"></div>
+<script>
+const ICONS=__ICONS__;
+const img=(n,s)=>`<img src="${ICONS[n].startsWith('data:')?ICONS[n]:'data:image/svg+xml;utf8,'+encodeURIComponent(ICONS[n])}" style="width:${s}px;height:${s}px;display:block">`;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const enc=encodeURIComponent;
+function thumbOf(h){
+ let u=h.thumb||'',m;
+ if(!u&&(m=/(?:v=|youtu\.be\/)([\w-]{11})/.exec(h.url||'')))u='https://i.ytimg.com/vi/'+m[1]+'/mqdefault.jpg';
+ if(!u&&(m=/twitch\.tv\/(\w+)\/?$/.exec(h.url||'')))u='https://static-cdn.jtvnw.net/previews-ttv/live_user_'+m[1].toLowerCase()+'-440x248.jpg';
+ return u?`background-image:url('${u.replace(/'/g,'%27')}')`:'';
+}
+const ENGINES={google:['Google','https://www.google.com/search?q='],duck:['DuckDuckGo','https://duckduckgo.com/?q='],brave:['Brave','https://search.brave.com/search?q='],bing:['Bing','https://www.bing.com/search?q=']};
+const PL={
+ yt:{n:'YouTube',tab:'YouTube',c:'#ff4b3a',ic:'youtube',mode:'youtube',plat:['YouTube'],login:'https://www.youtube.com',
+  lead:{link:'Вставь ссылку на видео, Shorts или плейлист.',search:'Введи запрос: откроется поиск YouTube.'},
+  ph:{link:'https://www.youtube.com/watch?v=…',search:'Что искать на YouTube…'},seg:'ССЫЛКА',
+  test:q=>/youtu(\.be|be\.com)/i.test(q),
+  chip:q=>/shorts/i.test(q)?['SHORTS','Откроется вертикальным окном']:/list=|playlist/i.test(q)?['ПЛЕЙЛИСТ','Будет играть подряд']:['ВИДЕО','Ссылка распознана'],
+  warn:'Это не ссылка на YouTube.',search_url:q=>'https://www.youtube.com/results?search_query='+enc(q),realSearch:true,live:true,
+  quick:[['Тренды','https://www.youtube.com/feed/trending'],['Главная','https://www.youtube.com'],['Подписки','https://www.youtube.com/feed/subscriptions']],quickLab:'ОТКРЫТЬ YOUTUBE ЦЕЛИКОМ',
+  accText:'Нужен для лайков, комментариев, сообщений и подписок. Смотреть можно и без него.'},
+ tt:{n:'TikTok',tab:'TikTok',c:'#35e8e0',ic:'tiktok',mode:'tiktok',plat:['TikTok'],login:'https://www.tiktok.com/login',
+  lead:{link:'Ссылка на видео откроет плеер, @имя — страницу автора.',search:'Введи запрос: откроется поиск TikTok в окне.'},
+  ph:{link:'Ссылка на TikTok или @имя',search:'Что искать в TikTok…'},seg:'ССЫЛКА',
+  test:q=>/tiktok\.com|vm\.tiktok/i.test(q)||/^@\S+/.test(q),
+  chip:q=>/^@/.test(q)?['ПРОФИЛЬ','Откроется страница автора']:['ВИДЕО','Ссылка распознана'],
+  warn:'Это не ссылка на TikTok.',search_url:q=>'https://www.tiktok.com/search?q='+enc(q),vertical:true,realSearch:true,
+  accText:'Нужен для лайков, комментариев, сообщений и подписок. Смотреть можно и без него.'},
+ tw:{n:'Twitch',tab:'Twitch',c:'#a98bff',ic:'twitch',mode:'twitch',plat:['Twitch'],login:'https://www.twitch.tv/login',
+  lead:{link:'Ник канала или ссылка — откроется прямой эфир.',search:'Введи запрос: откроется поиск Twitch.'},
+  ph:{link:'shroud  или  https://twitch.tv/shroud',search:'Что искать на Twitch…'},seg:'КАНАЛ',
+  test:q=>/twitch\.tv\/\w+/i.test(q)||/^\w{3,25}$/.test(q),
+  chip:q=>['КАНАЛ','Откроется прямой эфир'],warn:'Это не ник и не ссылка на канал.',search_url:q=>'https://www.twitch.tv/search?term='+enc(q),
+  quick:[['Обзор','https://www.twitch.tv/directory'],['Главная','https://www.twitch.tv'],['Подписки','https://www.twitch.tv/directory/following']],quickLab:'ОТКРЫТЬ TWITCH ЦЕЛИКОМ',
+  accText:'Нужен для чата, подписок и списка каналов в эфире. Смотреть можно и без него.'},
+ ot:{n:'Видео и сайты',tab:'Видео',c:'#4aa8ff',ic:'other',mode:'other',plat:['Vimeo','Файл','Сайт'],noacc:true,
+  lead:{link:'Vimeo, прямая ссылка на mp4/webm или любой сайт.',search:'Введи запрос: откроется поиск выбранной системы.'},
+  ph:{link:'https://…',search:'Что искать…'},seg:'ССЫЛКА',
+  test:q=>/^https?:\/\/\S+\.\S+/i.test(q)||/^[\w-]+\.[a-z]{2,}(\/\S*)?$/i.test(q),
+  chip:q=>/vimeo\.com/i.test(q)?['VIMEO','Откроется в плеере']:/\.(mp4|webm|mkv|mov|ogv)(\?|$)/i.test(q)?['ФАЙЛ','Откроется в плеере']:['САЙТ','Откроется страницей в окне'],
+  warn:'Это не ссылка.',search_url:q=>(ENGINES[S.settings.ui.engine]||ENGINES.google)[1]+enc(q),
+  quick:[['Vimeo','https://vimeo.com'],['Dailymotion','https://www.dailymotion.com']],quickLab:'БЫСТРЫЙ ПЕРЕХОД'}
+};
+const ORDER=['yt','tt','tw','ot'];
+const FEEDS=[['Для вас','Рекомендации','https://www.tiktok.com/foryou'],['Друзья','Видео друзей','https://www.tiktok.com/friends'],['Подписки','Ваши подписки','https://www.tiktok.com/following'],['LIVE','Прямые эфиры','https://www.tiktok.com/live']];
+const PRE={min:{hide_desc:1,hide_author:1,hide_ads:1,no_frame:1,fill_crop:1,fit_window:1},mid:{hide_desc:1,hide_author:0,hide_ads:1,no_frame:1,fill_crop:0,fit_window:0},full:{hide_desc:0,hide_author:0,hide_ads:0,no_frame:0,fill_crop:0,fit_window:0}};
+const TOG=[['hide_desc','Скрыть описание','Текст и хэштеги под видео'],['hide_author','Скрыть ник автора','Имя автора на видео'],['hide_ads','Скрывать рекламу и LIVE','Такие ролики пропускаются в ленте'],['no_frame','Без рамки вокруг видео','Убирает поля, скругления и подложку'],['fill_crop','Растянуть на всё окно','Края видео могут обрезаться'],['fit_window','Подгонять окно под видео','Высота окна под пропорции ролика']];
+
+const HOME={yt:'https://www.youtube.com',tt:'https://www.tiktok.com/foryou',tw:'https://www.twitch.tv'};
+let api,S={history:[],settings:{on_top:true,size:'M',tiktok:{},ui:{layout:'tabs',default_search:false,engine:'google'}}};
+let sr=null,srFor='',searched=false,srTimer=0,srBusy=false,srLoadingAll=false;
+let scr='yt',mode={},q='',histOpen=false,accOpen=false,pv=null,pvFor='',msg='',pvTimer=0,lastPlat='yt';
+
+const curMode=()=>mode[scr]||(S.settings.ui.default_search?'search':'link');
+const ttFlags=()=>Object.assign({hide_desc:0,hide_author:0,hide_ads:1,no_frame:1,fill_crop:0,fit_window:0},S.settings.tiktok||{});
+const curPre=()=>{const f=ttFlags();return Object.keys(PRE).find(k=>Object.keys(PRE[k]).every(x=>!!f[x]===!!PRE[k][x]))||''};
+const tg=(on,ac)=>`<div class="tg ${on?'on':''}" style="--ac:${ac||'#b4b4ff'}"><i></i></div>`;
+const seg=(items,cur,act,ac)=>`<div class="sg" style="--ac:${ac||'#b4b4ff'}">${items.map(([v,n])=>`<div class="${String(cur)===String(v)?'on':''}" data-act="${act}" data-v="${v}">${n}</div>`).join('')}</div>`;
+
+function nav(){
+ const L=S.settings.ui.layout||'tabs';
+ const items=ORDER.map(id=>{const p=PL[id],on=scr===id;
+  return L==='tabs'?`<div class="tab ${on?'on':''}" data-go="${id}" title="${p.n}" style="${on?`background:${p.c};color:#000`:''}">${img(p.ic,36)}${p.tab}</div>`
+  :`<div class="rb" data-go="${id}" title="${p.n}" style="${on?`background:${p.c};border-color:#000`:''}">${img(p.ic,48)}</div>`}).join('');
+ const sys=[['fav','Избранное','#ffc83d'],['set','Настройки','#b4b4ff']].map(([id,n,c])=>{const on=scr===id;
+  const ic=id==='fav'?(on?'fav_on':'fav'):'settings';          // «избранное» при нажатии меняет саму иконку, а не заливает фон
+  const bg=on&&id!=='fav';
+  return L==='tabs'?`<div class="tab sys" data-go="${id}" title="${n}" style="${bg?`background:${c}`:''}">${img(ic,36)}</div>`
+  :`<div class="rb" data-go="${id}" title="${n}" style="${bg?`background:${c};border-color:#000`:''}">${img(ic,48)}</div>`}).join('');
+ return L==='tabs'?`<div class="tabs-bar">${items}<div class="sp"></div>${sys}</div>`:`<div class="rail-bar">${items}<div class="sp"></div>${sys}</div>`;
+}
+const PINI='<svg width="13" height="13" viewBox="0 0 16 16"><path d="M5 2h6v3l-1.5 3 1.5 1.5V10H8.5L8 14l-.5-4H5V9.5L6.5 8 5 5z" fill="currentColor"/></svg>';
+const PALC=['#ff3d66','#35e8e0','#ffc83d','#a98bff'];
+const avEl=(a,i,sz,fs)=>a&&a.avatar?`<div style="width:${sz}px;height:${sz}px;flex:none;border:${sz>30?3:2}px solid #000;background:#14110e center/cover url('${a.avatar.replace(/'/g,'%27')}')"></div>`
+ :`<div style="width:${sz}px;height:${sz}px;flex:none;border:${sz>30?3:2}px solid #000;background:${a?PALC[i%4]:'#6b6252'};display:grid;place-items:center;font:900 ${fs}px 'Segoe UI';color:#000">${a?esc(((a.name||a.handle||'?')[0]||'?').toUpperCase()):'?'}</div>`;
+let accExp=null,accDel=null,accErr='';
+function acc(p){
+ if(p.noacc)return '';
+ const L=(S.login||{})[scr],on=!!(L&&L.in),A=((S.acc||{})[scr])||{active:null,list:[]};
+ const act=A.list.find(a=>a.id===A.active)||(on&&A.list[0])||null;
+ const pend=(S.pending||[]).includes(scr);
+ const nm=act?(act.name||act.handle):'';
+ const lab=on?(nm||'Вы вошли'):(pend?'Вход…':'Войти');
+ const btn=`<div class="accb" data-act="acc" title="Аккаунт">${avEl(on?(act||{name:'✓'}):null,0,30,13)}<span>${esc(lab)}</span><span style="font-size:11px">▾</span></div>`;
+ let pop='';
+ if(accOpen){
+  if(A.list.length||on){
+   pop=`<div class="pop"><div style="padding:8px 12px;background:#1b1814;border-bottom:3px solid #000;font:900 10px 'Segoe UI';letter-spacing:1px;color:#a99f8e">АККАУНТЫ</div>`+
+   A.list.map((a,i)=>{const isA=a.id===A.active,ex=accExp===a.id,cf=accDel===a.id;
+    return `<div style="border-bottom:3px solid #000;background:${isA?'#2e2a22':'transparent'}"><div data-act="asw" data-id="${a.id}" title="Переключиться на этот аккаунт" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer">${avEl(a,i,36,15)}
+     <div style="flex:1;min-width:0"><div style="font:900 13px 'Segoe UI';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.name||a.handle||'Аккаунт')}</div><div style="font:700 11px 'Segoe UI';color:#a99f8e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.handle||'')}</div></div>
+     ${isA?`<span style="background:#000;color:#ffc83d;padding:2px 6px;font:900 9px 'Segoe UI'">АКТИВЕН</span>`:''}
+     <div data-act="axp" data-id="${a.id}" title="Действия с аккаунтом" style="width:28px;height:28px;flex:none;display:grid;place-items:center;cursor:pointer;border:2px solid #000;background:#3a342c;font:900 12px 'Segoe UI'">${ex?'▴':'▾'}</div></div>
+     ${ex?`<div style="padding:0 12px 10px">${cf?`<div style="border:3px solid #000;background:#14110e;padding:8px"><div style="font:700 12px 'Segoe UI';line-height:1.35;margin-bottom:8px">Удалить аккаунт «${esc(a.name||a.handle||'')}» из приложения?</div><div style="display:flex;gap:6px"><div data-act="ado" data-id="${a.id}" style="flex:1;text-align:center;padding:7px 4px;cursor:pointer;background:#ff4b3a;color:#000;border:2px solid #000;font:900 11px 'Segoe UI'">Да, удалить</div><div data-act="acan" style="flex:1;text-align:center;padding:7px 4px;cursor:pointer;background:#3a342c;border:2px solid #000;font:900 11px 'Segoe UI'">Отмена</div></div></div>`
+      :`<div style="display:flex;gap:6px"><div data-act="adel" data-id="${a.id}" style="flex:1;text-align:center;padding:7px 4px;cursor:pointer;background:#14110e;border:2px solid #000;font:900 11px 'Segoe UI';color:#ff7a6b">Удалить</div></div>`}</div>`:''}</div>`}).join('')+
+   (!A.list.length&&on?`<div style="padding:12px;font:600 12px 'Segoe UI';color:#a99f8e">Запоминаю аккаунт…</div>`:'')+
+   (pend?`<div style="padding:11px 12px;font:800 12px 'Segoe UI';color:#ffc83d;border-bottom:3px dashed rgba(255,255,255,.14)">Жду вход в открывшемся окне…</div>`:'')+
+   (A.list.length<4&&!pend?`<div data-act="aadd" style="padding:11px 12px;cursor:pointer;font:800 13px 'Segoe UI';border-bottom:3px dashed rgba(255,255,255,.14)">＋ Добавить аккаунт</div>`:'')+
+   `<div data-act="alogout" style="padding:11px 12px;cursor:pointer;font:800 13px 'Segoe UI'">Выйти из всех</div>`+(accErr?`<div style="padding:8px 12px;color:#ff7a6b;font:700 11px 'Segoe UI'">${esc(accErr)}</div>`:'')+`</div>`;
+  }else pop=`<div class="pop"><p>${pend?'Жду вход в открывшемся окне…':p.accText}</p><div class="btn big" data-act="login">Войти в аккаунт</div></div>`;
+ }
+ return `<div class="acc">${btn}${pop}</div>`;
+}
+let loginAt=0,accTries=0;
+async function refreshLogin(force){
+ if(!force&&Date.now()-loginAt<12000)return;loginAt=Date.now();
+ try{const r=await api.accounts();for(const k of Object.keys(r.login))if(r.login[k].unknown&&S.login&&S.login[k])r.login[k]=S.login[k];S.login=r.login;S.acc=r.acc;S.pending=r.pending;render();
+   const need=Object.keys(r.login).some(k=>r.login[k].in&&!(r.acc[k]&&r.acc[k].active));
+   const pend=(r.pending||[]).length>0;
+   if((need&&accTries++<10)||pend)setTimeout(()=>{loginAt=0;refreshLogin()},pend?3000:7000);else if(!need)accTries=0}catch(e){}
+}
+const recs=p=>S.history.filter(h=>p.plat.includes(h.platform)).sort((a,b)=>(!!b.pinned)-(!!a.pinned));
+function histPop(p){
+ const r=recs(p).slice(0,8);
+ return `<div class="hd"><div class="h"><span>НЕДАВНО ОТКРЫТЫЕ</span><span class="sp"></span><u data-act="clr">Очистить</u></div>
+ ${r.length?r.map(h=>`<div class="hi" data-play="${esc(h.url)}"><div class="th" style="width:${p.vertical?22:48}px;height:${p.vertical?36:28}px;${thumbOf(h)}"></div><div class="m"><b>${esc(h.title)}</b><small>${esc(h.platform)}</small></div><div class="mini">▶</div><div class="mini dk ${h.pinned?'pn':''}" data-pin="${esc(h.url)}" title="${h.pinned?'Открепить':'Закрепить'}" style="${h.pinned?'background:#ffc83d;color:#000':''}">📌</div><div class="mini dk" data-rm="${esc(h.url)}" title="Удалить из истории">✕</div></div>`).join(''):'<div class="hi" style="cursor:default"><div class="m"><small>Пока пусто</small></div></div>'}</div>`;
+}
+function status(p){
+ const m=curMode(),t=q.trim();
+ let h='';
+ if(msg)h=`<span class="chip" style="color:#ff4b3a">${esc(msg)}</span>`;
+ else if(m==='link'&&t&&p.test(t)){const [c,n]=p.chip(t);h=`<span class="chip" style="color:${p.c}">${c}</span><span>${n}</span>`}
+ else if(m==='link'&&t)h=`<span>${p.warn}</span><span class="chip act" data-act="tosearch">ИСКАТЬ «${esc(t)}»</span>`;
+ return `<div class="stat">${h}</div>`;
+}
+function previewCard(p){
+ const t=q.trim(),m=curMode();
+ if(m!=='link'||!t||!p.test(t))return '';
+ const d=(pv&&pvFor===t)?pv:null;
+ const fav=d&&S.history.some(h=>h.url===d.url&&h.fav);
+ return `<div><div class="lab">ПРЕДПРОСМОТР ССЫЛКИ</div><div class="pv"><div class="im" style="width:${p.vertical?56:168}px;height:${p.vertical?98:94}px;${d?thumbOf(d):''}"></div>
+ <div class="tx"><div><b>${esc(d?d.title:(pvFor===t?t:'Загружаю…'))}</b><small>${esc(d?(d.channel||d.platform):'')}</small></div>
+ <div class="acts"><div class="btn" data-act="play">▶ СМОТРЕТЬ</div><div class="btn fv ${fav?'on':''}" data-act="pvfav">${fav?'★ В ИЗБРАННОМ':'☆ В ИЗБРАННОЕ'}</div></div></div></div></div>`;
+}
+function cards(list,favScr){
+ return `<div class="grid">${list.map(h=>`<div class="card"><div class="im" style="${thumbOf(h)}"><span>${esc(h.platform)}</span>${favScr?'':`<div class="ibw"><div class="ib ${h.pinned?'on':''}" data-pin="${esc(h.url)}" title="${h.pinned?'Открепить':'Закрепить сверху'}">${PINI}</div><div class="ib" data-rm="${esc(h.url)}" title="Удалить из истории">✕</div></div>`}</div><div class="t">${esc(h.title)}</div><div class="acts"><div class="p" data-play="${esc(h.url)}">${favScr&&h.platform==='Сайт'?'▶ ОТКРЫТЬ':'▶ СМОТРЕТЬ'}</div>${favScr?`<div class="f on" data-fav="${esc(h.url)}" title="Убрать из избранного" style="color:#000">УБРАТЬ</div>`:`<div class="f ${h.fav?'on':''}" data-fav="${esc(h.url)}" title="${h.fav?'Убрать из избранного':'Добавить в избранное'}">${h.fav?'★':'☆'}</div>`}</div></div>`).join('')}</div>`;
+}
+const fmtT=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(c).padStart(2,'0')};
+function contOf(p){return S.history.find(h=>p.plat.includes(h.platform)&&h.pos>5&&h.dur>0&&h.dur-h.pos>10)}
+function contBlock(p,id){
+ const h=contOf(p);if(!h)return '';
+ const pct=Math.min(100,Math.round(h.pos/h.dur*100));
+ return `<div><div class="lab">ПРОДОЛЖИТЬ</div><div class="pv"><div class="im" style="width:120px;min-height:68px;position:relative;${thumbOf(h)}"><div class="prog"><i style="width:${pct}%;background:${p.c}"></i></div></div>
+ <div class="tx"><div><b>${esc(h.title)}</b><small>${esc(h.platform)} · осталось ${fmtT(h.dur-h.pos)}</small></div><div class="acts"><div class="btn" data-act="resume" data-u="${esc(h.url)}">▶ ПРОДОЛЖИТЬ</div></div></div></div></div>`;
+}
+function resCard(r){
+ const fav=S.history.some(h=>h.url===r.url&&h.fav);
+ return `<div class="card"><div class="im" style="${thumbOf(r)}">${r.dur?`<span class="d">${esc(r.dur)}</span>`:''}</div><div class="t">${esc(r.title)}<small>${esc(r.channel||'')}${r.views?' · '+esc(r.views):''}</small></div>
+ <div class="acts"><div class="p" data-play="${esc(r.url)}">▶ СМОТРЕТЬ</div><div class="f ${fav?'on':''}" data-favlink="${esc(r.url)}" title="${fav?'Убрать из избранного':'Добавить в избранное'}">${fav?'★':'☆'}</div></div></div>`;
+}
+function doSearch(){
+ const p=PL[scr],t=q.trim();clearTimeout(srTimer);
+ if(!p||!p.realSearch||!p.live||curMode()!=='search'||!t){sr=null;return}
+ srFor=t;srTimer=setTimeout(async()=>{srBusy=true;let r=null;try{r=await api.search(t,scr)}catch(e){}
+   srBusy=false;if(srFor===t){sr=r;if(q.trim()===t)render()}},500);
+}
+function platform(id){
+ const p=PL[id],m=curMode(),t=q.trim();
+ const showPv=m==='link'&&t&&p.test(t);
+ const srPv=m==='search'&&p.realSearch&&t&&sr&&sr.length&&!searched;
+ const srRes=m==='search'&&p.realSearch&&t&&searched;
+ const srLoad=m==='search'&&p.realSearch&&p.live&&t&&!searched&&!sr&&srFor===t;
+ let body='';
+ body+=previewCard(p);
+ if(srPv){const r=sr[0],fav=S.history.some(h=>h.url===r.url&&h.fav);
+  body+=`<div><div class="lab">ЛУЧШЕЕ СОВПАДЕНИЕ · «Найти» покажет все результаты</div><div class="pv"><div class="im" style="width:168px;height:94px;${thumbOf(r)}"></div>
+  <div class="tx"><div><b>${esc(r.title)}</b><small>${esc(r.channel||'')}${r.views?' · '+esc(r.views):''}</small></div><div class="acts"><div class="btn" data-play="${esc(r.url)}">▶ СМОТРЕТЬ</div><div class="btn fv ${fav?'on':''}" data-favlink="${esc(r.url)}">${fav?'★ В ИЗБРАННОМ':'☆ В ИЗБРАННОЕ'}</div></div></div></div></div>`
+  if(sr.length>1)body+=`<div><div class="lab">ЕЩЁ РЕЗУЛЬТАТЫ</div><div class="grid">${sr.slice(1,4).map(resCard).join('')}</div></div>`}
+ if(srLoad)body+=`<div class="empty">Ищу…</div>`;
+ if(srRes){body+=`<div><div class="lab">РЕЗУЛЬТАТЫ ПОИСКА</div>${sr&&sr.length?`<div class="grid">${sr.map(resCard).join('')}</div>`:`<div class="empty">${srBusy||!sr||srLoadingAll?'Ищу… (для TikTok это занимает несколько секунд)':'Ничего не найдено'}</div>`}</div>`}
+ if(!showPv&&!srPv&&!srRes&&p.quick)body+=`<div class="quick"><span class="lab">${p.quickLab}</span>${p.quick.map(([n,u])=>`<div class="qb" data-site="${u}">${n} ↗</div>`).join('')}</div>`;
+ if(id==='tt'&&!showPv&&m!=='search')body+=`<div><div class="lab">ОТКРЫТЬ В ОКНЕ</div><div class="feeds">${FEEDS.map(([n,d,u])=>`<div class="feed" data-site="${u}" data-v="1" title="${d}"><b>${n} ↗</b><small>${d}</small></div>`).join('')}</div></div>`;
+ if(id==='ot'&&!showPv)body+=`<div class="note">MP4, WEBM, MKV, MOV по прямой ссылке откроются в плеере. Для файла с компьютера пока нет выбора файла — используйте ссылку.</div>`;
+ if(!srRes&&!showPv&&!srPv)body+=contBlock(p,id);
+ const r=recs(p).slice(0,6);
+ if(!srRes)body+=`<div style="border-top:3px dashed rgba(255,255,255,.14);padding-top:14px"><div class="lab">НЕДАВНО ОТКРЫТЫЕ</div>${r.length?cards(r,false):'<div class="empty">Пока ничего не открывали.</div>'}</div>`;
+ return `<div class="plate" style="background:${p.c}"><div class="ph">${img(p.ic,60)}<div style="flex:1;min-width:0"><h1>${p.n}</h1><p>${p.lead[m]}</p></div>${acc(p)}</div>
+ <div class="cmdw"><div class="cmd"><div class="segs"><div class="${m==='link'?'on':''}" data-act="mlink">${p.seg}</div><div class="${m==='search'?'on':''}" data-act="msearch">ПОИСК</div></div>
+ <input id="q" value="${esc(q)}" placeholder="${esc(p.ph[m])}" autocomplete="off" spellcheck="false">
+ <div class="cb hist ${histOpen?'on':''}" data-act="hist" title="Недавно открытые"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><circle cx="10" cy="10" r="7"/><path d="M10 6v4.5l3 2"/></svg></div>
+ <div class="cb go" data-act="submit">${m==='search'?'НАЙТИ':'▶ ОТКРЫТЬ'}</div></div>${histOpen?histPop(p):''}</div>${status(p)}</div>
+ <div class="body">${body}</div>`;
+}
+function favScreen(){
+ const f=S.history.filter(h=>h.fav);
+ return `<div class="plate flat" style="background:#ffc83d">Избранное</div><div class="body" style="padding-top:16px">${f.length?cards(f,true):'<div class="empty">Пока пусто. Нажми «☆» у любого видео.</div>'}</div>`;
+}
+function setScreen(){
+ const ui=S.settings.ui,L=ui.layout||'tabs',tt=ttFlags(),pre=curPre(),st=S.settings;
+ const opt=(v,t,d,mk)=>`<div class="opt ${L===v?'on':''}" data-act="layout" data-v="${v}"><div class="mk ${v==='tabs'?'c':''}"><i style="${v==='tabs'?'height:12px;border-bottom-width:3px':'width:14px;border-right-width:3px'}"></i></div><b>${t}</b><small>${d}</small></div>`;
+ const row=(act,k,n,d,on,ac)=>`<div class="srow" data-act="${act}" data-k="${k}"><div class="x"><b>${n}</b><small>${d}</small></div>${tg(on,ac)}</div>`;
+ return `<div class="plate flat" style="background:#b4b4ff">Настройки</div><div class="body" style="padding:18px 20px;gap:18px">
+ <div class="scard p14"><div class="sh">РАСПОЛОЖЕНИЕ ПЛАТФОРМ</div><div class="opts">${opt('tabs','Вкладки сверху','Больше места под список')}${opt('rail','Боковая панель','Платформы всегда под рукой')}</div></div>
+ <div class="scard">${row('ui','default_search','Сначала искать, а не запускать','Поле ввода по умолчанию в режиме «Поиск»',!!ui.default_search)}
+  ${row('ui','auto_paste','Подставлять ссылку из буфера при запуске','Если в буфере обмена ссылка на YouTube, TikTok, Twitch или Vimeo, она сама появится в строке',!!ui.auto_paste)}
+  ${row('top','on_top','Поверх всех окон','Окно плеера остаётся над остальными',!!st.on_top)}
+  <div class="srow" style="cursor:default"><div class="x"><b>Размер окна плеера</b><small>Малый, средний или большой</small></div>${seg([['S','Малый'],['M','Средний'],['L','Большой']],st.size||'M','size')}</div></div>
+ <div class="scard"><div class="srow" style="cursor:default"><div class="x"><b>Поисковик</b><small>Для режима «Поиск» во вкладке «Видео»</small></div>${seg(Object.entries(ENGINES).map(([k,v])=>[k,v[0]]),ui.engine||'google','engine','#4aa8ff')}</div></div>
+ <div class="scard p14" style="--ac:#35e8e0"><div class="sh" style="color:#35e8e0">TIKTOK — ВИД ВИДЕО</div>
+  <div class="srow" style="cursor:default;padding-top:0"><div class="x"><b>Режим</b><small>Задаёт переключатели ниже сразу</small></div>${seg([['min','Минимум'],['mid','Средний'],['full','Полный']],pre,'ttpre','#35e8e0')}</div>
+  ${TOG.map(([k,n,d])=>row('tt',k,n,d,!!tt[k],'#35e8e0')).join('')}</div>
+ <div class="scard">${row('tt','remember_window','Запоминать позицию и размер','Окна откроются там же, где были закрыты',st.tiktok.remember_window!==false)}
+  ${row('ui','autohide_bar','Скрывать панель окна','Своя панель вместо системной: включено — сворачивается и выезжает при наведении, выключено — всегда на месте',ui.autohide_bar!==false)}</div>
+ <div class="note">Режимы «Минимум / Средний / Полный» меняют переключатели TikTok набором. Ручное изменение даёт «свой набор».</div></div>`;
+}
+let lastScr='';
+window.__mpSync=async()=>{try{const S2=await api.state();S.history=S2.history;S.settings=S2.settings;render()}catch(e){}};
+function render(){
+ const oldBody=document.querySelector('.body'),keepScroll=oldBody&&lastScr===scr?oldBody.scrollTop:0;lastScr=scr;
+ const keep=document.activeElement&&document.activeElement.id==='q'?[document.activeElement.selectionStart,document.activeElement.selectionEnd]:null;
+ const L=S.settings.ui.layout||'tabs';
+ let main=ORDER.includes(scr)?platform(scr):scr==='fav'?favScreen():setScreen();
+ $('#app').className=L;
+ $('#app').innerHTML=nav()+`<div class="main">${main}</div>`;
+ const nb=document.querySelector('.body');if(nb&&keepScroll)nb.scrollTop=keepScroll;
+ document.body.style.setProperty('--ac',(PL[scr]||{}).c||'#b4b4ff');
+ const i=$('#q');if(i&&keep){i.focus();i.setSelectionRange(keep[0],keep[1])}
+}
+function doPreview(){
+ const p=PL[scr],t=q.trim();clearTimeout(pvTimer);
+ if(!p||curMode()!=='link'||!t||!p.test(t)||/^@/.test(t)||(scr==='tw'&&!/\//.test(t))){pv=null;return}
+ pvFor=t;pvTimer=setTimeout(async()=>{let d=null;try{d=await api.preview(t)}catch(e){}
+   if(pvFor===t){pv=d;if(q.trim()===t)render()}},450);
+}
+async function play(link,m,resume){
+ msg='';const r=await api.play(link,m||(PL[scr]?PL[scr].mode:''),!!resume);
+ if(r.error){msg=r.error}else{S=r.state;q='';pv=null;histOpen=false;await refresh()}
+ render();
+}
+async function refresh(){S=await api.state()}
+function submit(){
+ const p=PL[scr],t=q.trim();histOpen=false;
+ if(!t){msg='';const home=scr==='ot'?({google:'https://www.google.com',duck:'https://duckduckgo.com',brave:'https://search.brave.com',bing:'https://www.bing.com'}[S.settings.ui.engine]||'https://www.google.com'):HOME[scr];api.site(home,!!p.vertical);render();return}
+ msg='';
+ if(curMode()==='search'){
+  if(p.realSearch){searched=true;if(!sr||srFor!==t){sr=null;srFor=t;srLoadingAll=true;render();api.search(t,scr).then(r=>{srLoadingAll=false;if(srFor===t){sr=r;if(r===null){api.site(p.search_url(t),!!p.vertical)}render()}})}else render();return}
+  api.site(p.search_url(t),!!p.vertical);return}
+ if(!p.test(t)){render();return}
+ play(t);
+}
+document.addEventListener('input',e=>{if(e.target.id==='q'){q=e.target.value;msg='';searched=false;doPreview();doSearch();
+  const p=PL[scr];// обновить только статус и предпросмотр
+  render()}});
+document.addEventListener('keydown',e=>{if(e.target.id==='q'&&e.key==='Enter')submit()});
+document.addEventListener('click',async e=>{
+ const el=e.target.closest('[data-act],[data-go],[data-play],[data-fav],[data-rm],[data-pin],[data-site]');
+ if(!el){if(e.target.closest('.pop,.hd'))return;if(histOpen||accOpen){histOpen=accOpen=false;render()}return}
+ const d=el.dataset;
+ if(d.go){if(d.go!==scr){q='';pv=null;sr=null;searched=false}if(PL[d.go])lastPlat=d.go;scr=d.go;histOpen=accOpen=false;msg='';render();return}
+ if(d.site){api.site(d.site,!!d.v);return}
+ if(d.play){play(d.play);return}
+ if(d.favlink){S=await api.fav_link(d.favlink);render();return}
+ if(d.rm){S=await api.remove(d.rm);render();return}
+ if(d.pin){S=await api.pin_item(d.pin);render();return}
+ if(d.fav){S=await api.fav(d.fav);render();return}
+ const a=d.act,p=PL[scr];
+ if(a==='acc'){accOpen=!accOpen;histOpen=false;render();if(accOpen)refreshLogin(true)}
+ else if(a==='asw'){if(d.id!==((S.acc[scr]||{}).active)){accErr='';const r=await api.acc_switch(scr,d.id);S.login=r.login;S.acc=r.acc;S.pending=r.pending;accErr=r.error||'';render()}}
+ else if(a==='axp'){accExp=accExp===d.id?null:d.id;accDel=null;render()}
+ else if(a==='adel'){accDel=d.id;render()}
+ else if(a==='acan'){accDel=null;render()}
+ else if(a==='ado'){const r=await api.acc_remove(scr,d.id);S.login=r.login;S.acc=r.acc;S.pending=r.pending;accExp=accDel=null;render()}
+ else if(a==='aadd'){const r=await api.acc_add(scr);S.login=r.login;S.acc=r.acc;S.pending=r.pending;accErr=r.error||'';accOpen=false;render();loginAt=0;setTimeout(()=>refreshLogin(true),3000)}
+ else if(a==='alogout'){const r=await api.logout(scr);S.login=r.login;S.acc=r.acc;S.pending=r.pending;accOpen=false;accExp=accDel=null;loginAt=0;render()}
+ else if(a==='login'){accOpen=false;api.site(p.login,!!p.vertical);render()}
+ else if(a==='hist'){histOpen=!histOpen;accOpen=false;render()}
+ else if(a==='clr'){S=await api.clear(false);render()}
+ else if(a==='mlink'){mode[scr]='link';pv=null;sr=null;searched=false;render();doPreview()}
+ else if(a==='msearch'){mode[scr]='search';pv=null;searched=false;render();doSearch()}
+ else if(a==='tosearch'){mode[scr]='search';searched=false;render();doSearch()}
+ else if(a==='paste'){q=(await api.clipboard()).trim();mode[scr]='link';msg='';doPreview();render()}
+ else if(a==='submit')submit();
+ else if(a==='play')play(q.trim());
+ else if(a==='resume'){play(d.u,undefined,true)}
+ else if(a==='pvfav'){S=await api.fav_link(q.trim());render()}
+ else if(a==='layout'){S=await api.ui_setting('layout',d.v);render()}
+ else if(a==='ui'){S=await api.ui_setting(d.k,!S.settings.ui[d.k]);render()}
+ else if(a==='top'){S=await api.setting('on_top',!S.settings.on_top);render()}
+ else if(a==='size'){S=await api.setting('size',d.v);render()}
+ else if(a==='engine'){S=await api.ui_setting('engine',d.v);render()}
+ else if(a==='tt'){const cur=d.k in ttFlags()?ttFlags()[d.k]:true;S=await api.tt_setting(d.k,!cur);render()}
+ else if(a==='ttpre'){const f=PRE[d.v];for(const k of Object.keys(f))S=await api.tt_setting(k,!!f[k]);render()}
+});
+window.addEventListener('focus',()=>{if(!api)return;window.__mpSync();if(ORDER.includes(scr))refreshLogin()});
+window.addEventListener('pywebviewready',async()=>{
+ api=pywebview.api;S=await api.state();setTimeout(()=>refreshLogin(),600);
+ const c=S.settings.ui.auto_paste?(await api.clipboard()).trim():'';
+ const k=/youtu/i.test(c)?'yt':/tiktok/i.test(c)?'tt':/twitch\.tv/i.test(c)?'tw':/vimeo/i.test(c)?'ot':null;
+ if(/^https?:\/\//i.test(c)&&k){scr=k;q=c;doPreview()}
+ render();const i=$('#q');if(i)i.focus();
+});
+render();
+</script></body></html>

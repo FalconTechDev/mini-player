@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+*.exe
+ui.html
+installer/payload/
+installer/app.ico
+installer/dist/
+installer/build/

@@ -1,0 +1,125 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0}
+html{background:#26211c}
+body{background:#26211c;color:#f3ece0;font-family:"Segoe UI",sans-serif;user-select:none;border:3px solid #000;overflow-x:hidden;min-height:100vh}
+body.gear{overflow-y:auto}
+.bar{padding:6px 8px;background:#26211c;display:flex;flex-direction:column;gap:6px}
+.r{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.g1{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.g1.fix{flex:none}
+small{font:900 9px "Segoe UI";letter-spacing:1px;color:#a99f8e}
+.bs{display:flex;gap:4px}
+.mb{flex:1;height:26px;min-width:28px;padding:0 8px;display:grid;place-items:center;cursor:pointer;border:2px solid #000;box-shadow:2px 2px 0 #000;background:#3a342c;color:#f3ece0;font:900 10px "Segoe UI";white-space:nowrap}
+.mb.fix{flex:none}
+.mb:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 #000}.mb:active{transform:translate(2px,2px);box-shadow:none}
+.mb.on{background:var(--a);color:#000}.mb.red{background:#ff4b3a;color:#000;flex:none;width:28px}
+.mb svg{display:block}
+.pl{flex-direction:row;align-items:center;gap:8px;height:42px}
+#t{flex:1;font:800 12px "Segoe UI";white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:move;min-width:0}
+.pl .mb{flex:none;width:28px;height:24px;padding:0}.pl .mb.txt{width:auto;padding:0 8px;font-size:10px}
+/* настройки */
+.gp{padding:4px 12px 8px}
+.h{padding:8px 0 2px;font:900 9px "Segoe UI";letter-spacing:1px;color:#a99f8e}
+.sec{padding:8px 0;border-bottom:3px dashed rgba(255,255,255,.14)}
+.lb{font:800 13px "Segoe UI";margin-bottom:6px}
+.sg{display:flex;border:3px solid #000}
+.sg div{flex:1;text-align:center;padding:5px 2px;cursor:pointer;background:#3a342c;border-right:3px solid #000;font:800 10px "Segoe UI"}
+.sg div:last-child{border-right:0}.sg div.on{background:var(--a);color:#000}
+.tr{display:flex;align-items:center;gap:10px;padding:9px 0;cursor:pointer;border-bottom:3px dashed rgba(255,255,255,.14)}
+.tr:last-child{border-bottom:0}
+.tr .x{flex:1;font:800 12px "Segoe UI"}.tr .x small{display:block;font:600 11px "Segoe UI";color:#a99f8e;letter-spacing:0}
+.tg{width:40px;height:24px;border:3px solid #000;background:#14110e;position:relative;flex:none}
+.tg i{position:absolute;top:1px;left:1px;width:10px;height:10px;background:#f3ece0;border:3px solid #000;box-sizing:content-box}
+.tg.on{background:var(--a)}.tg.on i{left:15px}
+</style></head>
+<body><div id="root"></div>
+<script>
+const q=new URLSearchParams(location.search), $=id=>document.getElementById(id), api=()=>window.pywebview&&pywebview.api;
+const ROLE=q.get('role'), KIND=q.get('kind'), PLAT=q.get('platform')||'';
+const CLR={YouTube:'#ff4b3a',TikTok:'#35e8e0',Twitch:'#a98bff'}[PLAT]||'#4aa8ff';
+document.body.style.setProperty('--a',CLR);document.body.classList.add(ROLE);
+const PRE={min:{hide_desc:1,hide_author:1,hide_ads:1,no_frame:1,fill_crop:1,fit_window:1},mid:{hide_desc:1,hide_author:0,hide_ads:1,no_frame:1,fill_crop:0,fit_window:0},full:{hide_desc:0,hide_author:0,hide_ads:0,no_frame:0,fill_crop:0,fit_window:0}};
+const FEEDS=[['ДЛЯ ВАС','Лента «Для вас»','/foryou'],['ДРУЗЬЯ','Видео друзей','/friends'],['ПОДП.','Ваши подписки','/following'],['LIVE','Прямые эфиры','/live']];
+const near=(a,b)=>Math.abs(+a-+b)<.01;
+const PIN='<svg width="13" height="13" viewBox="0 0 16 16"><path d="M5 2h6v3l-1.5 3 1.5 1.5V10H8.5L8 14l-.5-4H5V9.5L6.5 8 5 5z" fill="currentColor"/></svg>';
+const MIN='<svg width="13" height="13" viewBox="0 0 16 16"><path d="M3 12h10" stroke="currentColor" stroke-width="2.6"/></svg>';
+const FS_IN='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>';
+const FS_OUT='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4"/></svg>';
+const GEAR='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4h12M2 8h12M2 12h12"/><path d="M10 2v4M5 6v4M11 10v4" stroke-width="2.4"/></svg>';
+let S={ui:{autohide_bar:true,opacity:1,op_frame:1,op_video:1},tt:{},pinned:false,fs:false,title:'',gearOpen:false,act:{chat:false,audio:false},path:''};
+const tt=()=>Object.assign({hide_desc:false,hide_author:false,hide_ads:true,no_frame:true,fill_crop:false,fit_window:false,auto_scroll:true},S.tt||{});
+const curPre=()=>{const f=tt();return Object.keys(PRE).find(k=>Object.keys(PRE[k]).every(x=>!!f[x]===!!PRE[k][x]))||''};
+const trow=(k,n,d,on,ui)=>`<div class="tr" data-k="${k}"${ui?' data-ui="1"':''}><div class="x">${n}${d?`<small>${d}</small>`:''}</div><div class="tg ${on?'on':''}"><i></i></div></div>`;
+const seg3=(label,key,vals)=>`<div class="sec"><div class="lb">${label}</div><div class="sg">${vals.map(v=>`<div data-op="${key}:${v}" class="${near(S.ui[key],v)?'on':''}">${Math.round(v*100)}%</div>`).join('')}</div></div>`;
+
+function viewTop(){
+ if(KIND==='tt'){
+  const t=tt();
+  return `<div class="bar"><div class="r"><div class="g1"><small>ВОСПРОИЗВЕДЕНИЕ</small><div class="bs"><div class="mb ${t.auto_scroll?'on':''}" data-a="auto" title="Автопрокрутка: после конца видео включается следующее">АВТОПРОКРУТКА</div></div></div>
+  <div class="g1 fix"><small>ОКНО</small><div class="bs"><div class="mb fix ${S.pinned?'on':''}" data-a="pin" title="Закрепить поверх всех окон" style="width:28px;padding:0">${PIN}</div>
+   <div class="mb fix ${S.gearOpen?'on':''}" data-a="gear" title="Настройки">НАСТРОЙКИ</div>
+   <div class="mb fix" data-a="min" title="Свернуть окно" style="width:28px;padding:0">${MIN}</div>
+   <div class="mb fix" data-a="fs" title="${S.fs?'Оконный режим':'Полный экран'}" style="width:28px;padding:0">${S.fs?FS_OUT:FS_IN}</div>
+   <div class="mb red" data-a="close" title="Закрыть">✕</div></div></div></div></div>`;
+ }
+ return `<div class="bar pl"><div id="t" data-drag="1" title="Тянуть за полосу: двигать окно">${(S.title||'').replace(/</g,'&lt;')}</div>
+  ${PLAT==='Twitch'?`<div class="mb txt ${S.act.chat?'on':''}" data-a="chat" title="Показать чат">ЧАТ</div><div class="mb txt ${S.act.audio?'on':''}" data-a="audio" title="Только звук">ТОЛЬКО ЗВУК</div>`:''}
+  <div class="mb ${S.pinned?'on':''}" data-a="pin" title="Закрепить поверх всех окон">${PIN}</div>
+  <div class="mb ${S.gearOpen?'on':''}" data-a="gear" title="Настройки окна">${GEAR}</div>
+  <div class="mb" data-a="min" title="Свернуть окно">${MIN}</div>
+  <div class="mb" data-a="fs" title="${S.fs?'Оконный режим':'Полный экран'}">${S.fs?FS_OUT:FS_IN}</div>
+  <div class="mb red" data-a="close" title="Закрыть">✕</div></div>`;
+}
+function viewBottom(){
+ return `<div class="bar"><div class="g1"><small>ЛЕНТА</small><div class="bs">${FEEDS.map(([n,t,p])=>`<div class="mb ${S.path.startsWith(p)?'on':''}" data-feed="${p}" title="${t}">${n}</div>`).join('')}</div></div></div>`;
+}
+function viewGear(){
+ let h='<div class="gp">';
+ if(KIND==='tt'){
+  const t=tt(),pre=curPre();
+  h+=`<div class="h">НА ВИДЕО</div><div class="sec"><div class="lb">Режим</div><div class="sg">${[['min','МИН'],['mid','СРЕД'],['full','ПОЛН']].map(([k,n])=>`<div data-pre="${k}" class="${pre===k?'on':''}">${n}</div>`).join('')}</div></div>
+  ${trow('hide_desc','Описание скрыть','',t.hide_desc)}${trow('hide_author','Ник скрыть','',t.hide_author)}${trow('hide_ads','Реклама и LIVE скрыть','',t.hide_ads)}
+  <div class="h">ОКНО</div>
+  ${trow('no_frame','Без рамки видео','Убрать поля и подложку',t.no_frame)}${trow('fill_crop','Растянуть на всё окно','Края видео могут обрезаться',t.fill_crop)}${trow('fit_window','Подгонять окно под видео','Высота окна под пропорции ролика',t.fit_window)}`;
+ } else h+='<div class="h">ОКНО</div>';
+ h+=trow('autohide_bar','Автоскрытие панелей','Панели выезжают за краем окна при наведении',S.ui.autohide_bar!==false,1)+
+  seg3('Прозрачность окна','opacity',[1,.8,.6])+seg3('Прозрачность рамки','op_frame',[1,.5,0])+seg3('Прозрачность видео','op_video',[1,.8,.6])+
+  `<div class="sec"><div class="lb">Размер окна</div><div class="sg">${['S','M','L'].map(k=>`<div data-sz="${k}">${k}</div>`).join('')}</div></div>`;
+ if(KIND!=='tt')h+=`<div class="tr" data-a="browser"><div class="x">Открыть в браузере ↗<small>Это же видео в обычном браузере</small></div></div>`;
+ return h+'</div>';
+}
+function render(){
+ $('root').innerHTML=ROLE==='top'?viewTop():ROLE==='bottom'?viewBottom():viewGear();
+ requestAnimationFrame(()=>{try{api().set_height(ROLE,Math.ceil(document.documentElement.getBoundingClientRect().height))}catch(e){}});
+}
+async function load(){try{const s=await api().state();S=Object.assign(S,s);render()}catch(e){}}
+window.__mpRefresh=load;
+window.__mpUi=u=>{S.ui=Object.assign(S.ui,u);render()};
+function ready(){load();if(ROLE==='bottom')setInterval(async()=>{try{const p=await api().cur_path();if(p!==S.path){S.path=p;render()}}catch(e){}},1500)}
+if(api())ready();else window.addEventListener('pywebviewready',ready);
+window.addEventListener('resize',()=>render());
+document.addEventListener('mousedown',e=>{if(e.button===0&&!e.target.closest('.mb,.tr,.sg,[data-op],[data-pre],[data-sz]')&&api())api().drag()});
+document.addEventListener('click',async e=>{
+ const a=e.target.closest('[data-a]'),f=e.target.closest('[data-feed]'),pre=e.target.closest('[data-pre]'),tr=e.target.closest('.tr[data-k]'),op=e.target.closest('[data-op]'),sz=e.target.closest('[data-sz]');
+ try{
+  if(f){await api().nav(f.dataset.feed);S.path=f.dataset.feed;render();return}
+  if(a){const n=a.dataset.a;
+   if(n==='pin')S.pinned=!!(await api().pin());
+   else if(n==='gear')S.gearOpen=!!(await api().gear());
+   else if(n==='min')api().minimize();
+   else if(n==='fs')S.fs=!!(await api().fullscreen());
+   else if(n==='close')api().close();
+   else if(n==='browser')api().browser();
+   else if(n==='auto')await api().tt_setting('auto_scroll',!tt().auto_scroll);
+   else if(n==='chat'||n==='audio'){const r=await api().act(n);if(r)S.act=r}
+   await load();render();return}
+  if(pre){for(const k of Object.keys(PRE[pre.dataset.pre]))await api().tt_setting(k,!!PRE[pre.dataset.pre][k])}
+  else if(tr&&tr.dataset.ui){await api().ui_setting('autohide_bar',!(S.ui.autohide_bar!==false))}
+  else if(tr){await api().tt_setting(tr.dataset.k,!tt()[tr.dataset.k])}
+  else if(op){const [k,v]=op.dataset.op.split(':');await api().ui_setting(k,+v)}
+  else if(sz){api().size(sz.dataset.sz);return}
+  await load();
+ }catch(err){}
+});
+</script></body></html>
