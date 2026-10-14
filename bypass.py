@@ -414,35 +414,40 @@ class Bypass:
     def _run(self):
         try:
             port = self.start_proxy()
-            self._cmd(strategy=None) if self.helper_alive() else None
-            time.sleep(0.5) if self.helper_alive() else None
-            base, det = score(port)
-            _log("baseline %d/%d %s helper=%s" % (base, len(PROBE_HOSTS), det, self.helper_alive()))
+            if self.helper_alive():
+                self._cmd(strategy=None)
+                time.sleep(0.5)
+            res = {}
+            th = threading.Thread(target=lambda: res.update(r=score(port)), daemon=True)
+            th.start()                                       # проверка сайтов идёт параллельно запросу прав
+            if not self.helper_alive():
+                self.msg = "Подтвердите запрос Windows о правах администратора"
+                self._prepare_files()
+                if getattr(sys, "frozen", False):
+                    exe, params = sys.executable, '%s %d "%s"' % (HELPER_FLAG, os.getpid(), self.dir)
+                else:
+                    script = os.path.abspath(sys.argv[0])
+                    exe, params = sys.executable, '"%s" %s %d "%s"' % (script, HELPER_FLAG, os.getpid(), self.dir)
+                rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, None, 0)
+                _log("runas rc=%s exe=%s params=%s" % (rc, exe, params))
+                if rc <= 32:
+                    self.state, self.msg = "denied", "Права администратора не выданы, обход выключен"
+                    return
+                self.msg = "Запускаю помощника"
+                t0 = time.time()
+                while not self.helper_alive():
+                    if time.time() - t0 > 40:
+                        self.state, self.msg = "failed", "Помощник не запустился"
+                        return
+                    time.sleep(0.3)
+            th.join(20)
+            base, det = res.get("r", (0, {}))
+            _log("baseline %d/%d %s" % (base, len(PROBE_HOSTS), det))
+            if not self.want:
+                return
             if base == len(PROBE_HOSTS):
                 self.state, self.msg, self.strategy = "unneeded", "Сайты и так доступны, обход не нужен", None
                 return
-            if not self.want:
-                return
-            if self.helper_alive():                          # помощник уже работает с прошлого включения: права не нужны
-                self._select(base)
-                return
-            self._prepare_files()
-            if getattr(sys, "frozen", False):
-                exe, params = sys.executable, '%s %d "%s"' % (HELPER_FLAG, os.getpid(), self.dir)
-            else:
-                script = os.path.abspath(sys.argv[0])
-                exe, params = sys.executable, '"%s" %s %d "%s"' % (script, HELPER_FLAG, os.getpid(), self.dir)
-            rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, None, 0)
-            _log("runas rc=%s exe=%s params=%s" % (rc, exe, params))
-            if rc <= 32:
-                self.state, self.msg = "denied", "Права администратора не выданы, обход выключен"
-                return
-            t0 = time.time()
-            while not self.helper_alive():
-                if time.time() - t0 > 30:
-                    self.state, self.msg = "failed", "Помощник не запустился"
-                    return
-                time.sleep(0.3)
             self._select(base)
         except Exception as e:
             _log("error: %r" % e)
@@ -506,3 +511,35 @@ class Bypass:
     def info(self):
         return {"supported": supported(), "state": self.state, "msg": self.msg,
                 "strategy": STRATEGIES[self.strategy][0] if self.strategy is not None else ""}
+
+
+def show_splash(b):
+    """Маленькое окно «Подождите…», пока включается обход (запрос прав, подбор стратегии)."""
+    def run():
+        try:
+            import tkinter as tk
+            r = tk.Tk()
+            r.overrideredirect(True)
+            r.attributes("-topmost", True)
+            r.configure(bg="#000")
+            w, h = 360, 110
+            r.geometry("%dx%d+%d+%d" % (w, h, (r.winfo_screenwidth() - w) // 2, 60))
+            f = tk.Frame(r, bg="#ffc83d")
+            f.pack(fill="both", expand=True, padx=3, pady=3)
+            tk.Label(f, text="Mini Player", bg="#ffc83d", fg="#000", font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
+            tk.Label(f, text="Подождите, включаю обход блокировок…", bg="#ffc83d", fg="#000", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=14)
+            lab = tk.Label(f, text="", bg="#ffc83d", fg="#3a342c", font=("Segoe UI", 9), wraplength=330, justify="left")
+            lab.pack(anchor="w", padx=14, pady=(2, 0))
+            t0 = time.time()
+
+            def tick():
+                lab.config(text=b.msg or "")
+                if b.state in ("starting", "testing") and time.time() - t0 < 120:
+                    r.after(300, tick)
+                else:
+                    r.destroy()
+            tick()
+            r.mainloop()
+        except Exception:
+            pass
+    threading.Thread(target=run, daemon=True).start()

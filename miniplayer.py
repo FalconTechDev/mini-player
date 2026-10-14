@@ -1127,6 +1127,7 @@ class MainApi:
         b = get_bypass()
         if on:
             b.launch()
+            bypass.show_splash(b)
         else:
             b.disable()
         return True
@@ -1411,7 +1412,8 @@ if __name__ == "__main__":
         os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] += " " + BYPASS.browser_args()
         BYPASS.install_python_proxy()
         if load()["settings"]["ui"].get("bypass"):
-            BYPASS.launch()                                  # единственный запрос прав администратора: при запуске приложения
+            BYPASS.launch()
+            bypass.show_splash(BYPASS)                                  # единственный запрос прав администратора: при запуске приложения
     main = webview.create_window("Mini Player", html=HTML, js_api=MainApi(), min_size=(640, 480),
                                  **restore_geometry("main", 760, 620))
     track_geometry(main, "main")
