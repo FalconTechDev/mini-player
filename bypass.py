@@ -302,6 +302,7 @@ class Bypass:
         self.proxy = None
         self.state, self.msg, self.strategy = "off", "", None
         self.busy = False
+        self.want = False
 
     # --- вспомогательное
     def _cmd(self, **kw):
@@ -350,18 +351,37 @@ class Bypass:
     # --- запуск
     def launch(self):
         """Запускает помощника с правами администратора (запрос UAC) и подбирает стратегию в фоне."""
+        self.want = True
         if self.busy or not supported():
             return
         self.busy = True
-        self.state, self.msg = "starting", "Запрос прав администратора"
+        self.state, self.msg = "starting", "Запуск"
         threading.Thread(target=self._run, daemon=True).start()
+
+    def disable(self):
+        """Выключает обход без перезапуска: winws останавливается, помощник остаётся ждать (повторный запрос прав не нужен)."""
+        self.want = False
+        if not self.busy:
+            self._off()
+
+    def _off(self):
+        if self.helper_alive():
+            self._cmd(strategy=None)
+        self.state, self.msg, self.strategy = "off", "", None
 
     def _run(self):
         try:
             port = self.start_proxy()
+            self._cmd(strategy=None) if self.helper_alive() else None
+            time.sleep(0.5) if self.helper_alive() else None
             base, _ = score(port)
             if base == len(PROBE_HOSTS):
                 self.state, self.msg, self.strategy = "unneeded", "Сайты и так доступны, обход не нужен", None
+                return
+            if not self.want:
+                return
+            if self.helper_alive():                          # помощник уже работает с прошлого включения: права не нужны
+                self._select(base)
                 return
             self._prepare_files()
             if getattr(sys, "frozen", False):
@@ -384,6 +404,8 @@ class Bypass:
             self.state, self.msg = "failed", str(e)
         finally:
             self.busy = False
+            if not self.want:
+                self._off()
 
     def _select(self, base):
         self.state, self.msg = "testing", "Подбор стратегии"
@@ -394,6 +416,8 @@ class Bypass:
             order.insert(0, saved)
         best, best_i = base, None
         for i in order:
+            if not self.want:
+                return
             self.msg = "Проверка: %s" % STRATEGIES[i][0]
             self._cmd(strategy=i)
             time.sleep(1.5)
@@ -419,16 +443,7 @@ class Bypass:
         if self.busy or not supported():
             return
         self.set("strategy", None)
-        self.launch() if not self.helper_alive() else threading.Thread(target=self._rerun, daemon=True).start()
-
-    def _rerun(self):
-        self.busy = True
-        try:
-            base, _ = score(self.start_proxy())
-            self._cmd(strategy=None)
-            self._select(0)
-        finally:
-            self.busy = False
+        self.launch()
 
     def stop(self):
         try:
