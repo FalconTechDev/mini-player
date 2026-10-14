@@ -198,7 +198,7 @@ const avEl=(a,i,sz,fs)=>a&&a.avatar?`<div style="width:${sz}px;height:${sz}px;fl
  :`<div style="width:${sz}px;height:${sz}px;flex:none;border:${sz>30?3:2}px solid #000;background:${a?PALC[i%4]:'#6b6252'};display:grid;place-items:center;font:900 ${fs}px 'Segoe UI';color:#000">${a?esc(((a.name||a.handle||'?')[0]||'?').toUpperCase()):'?'}</div>`;
 let accExp=null,accDel=null,accErr='';
 function acc(p){
- if(p.simpleLogin)return `<div class="acc"><div class="accb" data-act="login" title="Откроется страница входа Netflix"><span style="padding-left:8px">Войти</span></div></div>`;
+ if(p.simpleLogin)return `<div class="acc"><div class="accb" data-act="login" title="Откроется страница входа Netflix">${avEl(null,0,30,13)}<span>Войти</span><span style="font-size:11px">▾</span></div></div>`;
  if(p.noacc)return '';
  const L=(S.login||{})[scr],on=!!(L&&L.in),A=((S.acc||{})[scr])||{active:null,list:[]};
  const act=A.list.find(a=>a.id===A.active)||(on&&A.list[0])||null;
