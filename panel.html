@@ -86,6 +86,8 @@ function viewGear(){
  h+=trow('autohide_bar','Автоскрытие панелей','Панели выезжают за краем окна при наведении',S.ui.autohide_bar!==false,1)+
   seg3('Прозрачность окна','opacity',[1,.8,.6])+seg3('Прозрачность рамки','op_frame',[1,.5,0])+seg3('Прозрачность видео','op_video',[1,.8,.6])+
   `<div class="sec"><div class="lb">Размер окна</div><div class="sg">${['S','M','L'].map(k=>`<div data-sz="${k}">${k}</div>`).join('')}</div></div>`;
+ if(PLAT==='YouTube'){h+=trow('yt_exit','Закрытие ведёт дальше','Вместо закрытия окна: лента или меню поиска',!!S.ui.yt_exit,1);
+  if(S.ui.yt_exit)h+=`<div class="sec"><div class="lb">Куда переходить</div><div class="sg">${[['feed','Лента'],['menu','Меню поиска']].map(([v,n])=>`<div data-yx="${v}" class="${(S.ui.yt_exit_to||'feed')===v?'on':''}">${n}</div>`).join('')}</div></div>`}
  if(KIND!=='tt')h+=`<div class="tr" data-a="browser"><div class="x">Открыть в браузере ↗<small>Это же видео в обычном браузере</small></div></div>`;
  return h+'</div>';
 }
@@ -101,7 +103,7 @@ if(api())ready();else window.addEventListener('pywebviewready',ready);
 window.addEventListener('resize',()=>render());
 document.addEventListener('mousedown',e=>{if(e.button===0&&!e.target.closest('.mb,.tr,.sg,[data-op],[data-pre],[data-sz]')&&api())api().drag()});
 document.addEventListener('click',async e=>{
- const a=e.target.closest('[data-a]'),f=e.target.closest('[data-feed]'),pre=e.target.closest('[data-pre]'),tr=e.target.closest('.tr[data-k]'),op=e.target.closest('[data-op]'),sz=e.target.closest('[data-sz]');
+ const a=e.target.closest('[data-a]'),f=e.target.closest('[data-feed]'),pre=e.target.closest('[data-pre]'),tr=e.target.closest('.tr[data-k]'),op=e.target.closest('[data-op]'),sz=e.target.closest('[data-sz]'),yx=e.target.closest('[data-yx]');
  try{
   if(f){await api().nav(f.dataset.feed);S.path=f.dataset.feed;render();return}
   if(a){const n=a.dataset.a;
@@ -115,7 +117,8 @@ document.addEventListener('click',async e=>{
    else if(n==='chat'||n==='audio'){const r=await api().act(n);if(r)S.act=r}
    await load();render();return}
   if(pre){for(const k of Object.keys(PRE[pre.dataset.pre]))await api().tt_setting(k,!!PRE[pre.dataset.pre][k])}
-  else if(tr&&tr.dataset.ui){await api().ui_setting('autohide_bar',!(S.ui.autohide_bar!==false))}
+  else if(yx){await api().ui_setting('yt_exit_to',yx.dataset.yx)}
+  else if(tr&&tr.dataset.ui){const k=tr.dataset.k==='yt_exit'?'yt_exit':'autohide_bar';await api().ui_setting(k,k==='yt_exit'?!S.ui.yt_exit:!(S.ui.autohide_bar!==false))}
   else if(tr){await api().tt_setting(tr.dataset.k,!tt()[tr.dataset.k])}
   else if(op){const [k,v]=op.dataset.op.split(':');await api().ui_setting(k,+v)}
   else if(sz){api().size(sz.dataset.sz);return}
