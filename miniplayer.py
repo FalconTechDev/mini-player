@@ -1110,7 +1110,7 @@ def restart_app():
     """Перезапускает приложение (нужно, чтобы окна браузера подхватили или сбросили прокси режима обхода)."""
     import subprocess
     if BYPASS_OBJ:
-        BYPASS_OBJ[0].stop()
+        BYPASS_OBJ[0].stop(keep_helper=True)
     args = [sys.executable] + (sys.argv[1:] if getattr(sys, "frozen", False) else sys.argv)
     subprocess.Popen(args, env=dict(os.environ, MP_RESTART="1", PYINSTALLER_RESET_ENVIRONMENT="1"))   # новая копия распаковывается сама, а не берёт папку старой
     os._exit(0)
@@ -1128,6 +1128,15 @@ class MainApi:
         if on:
             b.launch()
             bypass.show_splash(b)
+            if not b.in_browser:                            # окна запущены без прокси: после проверки один раз перезапускаемся, чтобы они его подхватили
+                def later():
+                    time.sleep(1)
+                    while b.busy:
+                        time.sleep(0.3)
+                    if b.state in ("on", "unneeded"):
+                        time.sleep(2.7)                     # заставка успевает показать итог
+                        restart_app()
+                threading.Thread(target=later, daemon=True).start()
         else:
             b.disable()
         return True
@@ -1407,13 +1416,12 @@ if __name__ == "__main__":
             if _try == 19 or not os.environ.get("MP_RESTART"):
                 raise SystemExit  # уже запущено
             time.sleep(0.5)
-    if bypass.supported():                                   # прокси есть всегда: обход включается и выключается без перезапуска
+    if bypass.supported() and load()["settings"]["ui"].get("bypass"):      # без включённого обхода прокси нет: сеть работает как обычно
         BYPASS = get_bypass()
         os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] += " " + BYPASS.browser_args()
         BYPASS.install_python_proxy()
-        if load()["settings"]["ui"].get("bypass"):
-            BYPASS.launch()
-            bypass.show_splash(BYPASS)                                  # единственный запрос прав администратора: при запуске приложения
+        BYPASS.launch()                                      # права администратора запрашиваются один раз и сохраняются при перезапуске
+        bypass.show_splash(BYPASS)
     main = webview.create_window("Mini Player", html=HTML, js_api=MainApi(), min_size=(640, 480),
                                  **restore_geometry("main", 760, 620))
     track_geometry(main, "main")

@@ -267,7 +267,7 @@ def _parent_alive(pid):
 def helper_main(parent_pid, workdir):
     """Выполняется с правами администратора: запускает/перезапускает winws по командам приложения и следит за родителем."""
     bindir = os.path.join(workdir, "bin")
-    cmdf, statf, filt = (os.path.join(workdir, n) for n in ("cmd.json", "status.json", "filter.txt"))
+    cmdf, statf, filt, parentf = (os.path.join(workdir, n) for n in ("cmd.json", "status.json", "filter.txt", "parent.txt"))
     proc = None
     cur = None
     err = [""]
@@ -296,8 +296,20 @@ def helper_main(parent_pid, workdir):
         cur = i
 
     last = None
+    dead_since = None
     try:
-        while _parent_alive(parent_pid):
+        while True:
+            try:                                                     # новый экземпляр приложения (после перезапуска) записывает свой pid сюда
+                with open(parentf, encoding="utf-8") as f:
+                    parent_pid = int(f.read().strip())
+            except Exception:
+                pass
+            if _parent_alive(parent_pid):
+                dead_since = None
+            else:
+                dead_since = dead_since or time.time()
+                if time.time() - dead_since > 30:                    # приложение закрыто и не вернулось: выходим
+                    break
             try:
                 with open(cmdf, encoding="utf-8") as f:
                     cmd = json.load(f)
@@ -389,8 +401,16 @@ class Bypass:
         urllib.request.install_opener(urllib.request.build_opener(urllib.request.ProxyHandler({"http": p, "https": p})))
 
     # --- запуск
+    def _write_parent(self):
+        try:
+            with open(os.path.join(self.dir, "parent.txt"), "w", encoding="utf-8") as f:
+                f.write(str(os.getpid()))
+        except OSError:
+            pass
+
     def launch(self):
         """Запускает помощника с правами администратора (запрос UAC) и подбирает стратегию в фоне."""
+        self._write_parent()
         self.want = True
         if self.busy or not supported():
             return
@@ -496,11 +516,12 @@ class Bypass:
         self.set("strategy", None)
         self.launch()
 
-    def stop(self):
-        try:
-            self._cmd(quit=True)
-        except Exception:
-            pass
+    def stop(self, keep_helper=False):
+        if not keep_helper:                                # при перезапуске приложения помощник остаётся: повторный запрос прав не нужен
+            try:
+                self._cmd(quit=True)
+            except Exception:
+                pass
         if self.proxy:
             self.proxy.close()
         self.state = "off"
