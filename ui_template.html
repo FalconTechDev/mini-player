@@ -333,6 +333,9 @@ function setScreen(){
   ${row('top','on_top','Поверх всех окон','Окно плеера остаётся над остальными',!!st.on_top)}
   <div class="srow" style="cursor:default"><div class="x"><b>Размер окна плеера</b><small>Малый, средний или большой</small></div>${seg([['S','Малый'],['M','Средний'],['L','Большой']],st.size||'M','size')}</div></div>
  <div class="scard"><div class="srow" style="cursor:default"><div class="x"><b>Поисковик</b><small>Для режима «Поиск» во вкладке «Видео»</small></div>${seg(Object.entries(ENGINES).map(([k,v])=>[k,v[0]]),ui.engine||'google','engine','#4aa8ff')}</div></div>
+ <div class="scard p14" style="--ac:#ff4b3a"><div class="sh" style="color:#ff4b3a">YOUTUBE</div>
+  ${row('ui','yt_exit','Закрытие видео ведёт дальше','Вместо простого закрытия окна открывается лента YouTube или главное окно с поиском',!!ui.yt_exit,'#ff4b3a')}
+  ${ui.yt_exit?`<div class="srow" style="cursor:default"><div class="x"><b>Куда переходить</b><small>После нажатия «закрыть» в окне видео</small></div>${seg([['feed','Лента'],['menu','Меню поиска']],ui.yt_exit_to||'feed','ytexit','#ff4b3a')}</div>`:''}</div>
  ${bypassCard()}
  <div class="scard p14" style="--ac:#35e8e0"><div class="sh" style="color:#35e8e0">TIKTOK — ВИД ВИДЕО</div>
   <div class="srow" style="cursor:default;padding-top:0"><div class="x"><b>Режим</b><small>Задаёт переключатели ниже сразу</small></div>${seg([['min','Минимум'],['mid','Средний'],['full','Полный']],pre,'ttpre','#35e8e0')}</div>
@@ -418,6 +421,7 @@ document.addEventListener('click',async e=>{
  else if(a==='top'){S=await api.setting('on_top',!S.settings.on_top);render()}
  else if(a==='size'){S=await api.setting('size',d.v);render()}
  else if(a==='engine'){S=await api.ui_setting('engine',d.v);render()}
+ else if(a==='ytexit'){S=await api.ui_setting('yt_exit_to',d.v);render()}
  else if(a==='tt'){const cur=d.k in ttFlags()?ttFlags()[d.k]:true;S=await api.tt_setting(d.k,!cur);render()}
  else if(a==='ttpre'){const f=PRE[d.v];for(const k of Object.keys(f))S=await api.tt_setting(k,!!f[k]);render()}
 });

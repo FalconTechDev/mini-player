@@ -86,7 +86,6 @@ function viewGear(){
  h+=trow('autohide_bar','Автоскрытие панелей','Панели выезжают за краем окна при наведении',S.ui.autohide_bar!==false,1)+
   seg3('Прозрачность окна','opacity',[1,.8,.6])+seg3('Прозрачность рамки','op_frame',[1,.5,0])+seg3('Прозрачность видео','op_video',[1,.8,.6])+
   `<div class="sec"><div class="lb">Размер окна</div><div class="sg">${['S','M','L'].map(k=>`<div data-sz="${k}">${k}</div>`).join('')}</div></div>`;
- if(PLAT==='YouTube')h+=`<div class="h">ВЫХОД</div><div class="tr" data-a="to_feed"><div class="x">В ленту YouTube<small>Закрыть видео и открыть главную YouTube</small></div></div><div class="tr" data-a="to_menu"><div class="x">В меню поиска<small>Закрыть видео и вернуться в главное окно</small></div></div>`;
  if(KIND!=='tt')h+=`<div class="tr" data-a="browser"><div class="x">Открыть в браузере ↗<small>Это же видео в обычном браузере</small></div></div>`;
  return h+'</div>';
 }
@@ -112,8 +111,6 @@ document.addEventListener('click',async e=>{
    else if(n==='fs')S.fs=!!(await api().fullscreen());
    else if(n==='close')api().close();
    else if(n==='browser')api().browser();
-   else if(n==='to_feed')api().to_feed();
-   else if(n==='to_menu')api().to_menu();
    else if(n==='auto')await api().tt_setting('auto_scroll',!tt().auto_scroll);
    else if(n==='chat'||n==='audio'){const r=await api().act(n);if(r)S.act=r}
    await load();render();return}

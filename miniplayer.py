@@ -63,7 +63,7 @@ def apply_frame(win):
 
 TT_DEFAULTS = {"hide_desc": False, "hide_author": False, "hide_ads": True, "remember_window": True,
                "no_frame": True, "fill_crop": False, "fit_window": False, "hide_titlebar": True, "auto_scroll": True}
-UI_DEFAULTS = {"bypass": False, "layout": "tabs", "default_search": False, "engine": "google", "autohide_bar": True,
+UI_DEFAULTS = {"yt_exit": False, "yt_exit_to": "feed", "bypass": False, "layout": "tabs", "default_search": False, "engine": "google", "autohide_bar": True,
                "opacity": 1.0, "op_frame": 1.0, "op_video": 1.0, "auto_paste": False}
 TT_WINDOWS = []
 CFG_LOCK = threading.RLock()
@@ -364,6 +364,14 @@ class PlayerApi:
     def browser(self):
         webbrowser.open(self._info["canonical"])
 
+    def close_button(self):
+        """Кнопка закрытия: у YouTube при включённой настройке закрывает видео и ведёт в ленту или в меню поиска."""
+        ui = load()["settings"]["ui"]
+        if self._info.get("platform") == "YouTube" and ui.get("yt_exit"):
+            (self.to_menu if ui.get("yt_exit_to") == "menu" else self.to_feed)()
+        else:
+            self.close()
+
     def to_menu(self):
         """Закрывает видео и показывает главное окно (поиск, история)."""
         try:
@@ -513,16 +521,10 @@ class PanelApi:
         return self._ps.api.fullscreen()
 
     def close(self):
-        self._ps.api.close()
+        self._ps.api.close_button()
 
     def browser(self):
         self._ps.api.browser()
-
-    def to_menu(self):
-        self._ps.api.to_menu()
-
-    def to_feed(self):
-        self._ps.api.to_feed()
 
     def size(self, key):
         self._ps.api.size(key)
