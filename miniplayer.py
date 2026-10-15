@@ -364,6 +364,22 @@ class PlayerApi:
     def browser(self):
         webbrowser.open(self._info["canonical"])
 
+    def to_menu(self):
+        """Закрывает видео и показывает главное окно (поиск, история)."""
+        try:
+            if MAIN_WIN and P.is_alive(MAIN_WIN[0]):
+                P.restore(MAIN_WIN[0])
+                P.topmost(MAIN_WIN[0], True)
+                P.topmost(MAIN_WIN[0], False)
+        except Exception:
+            pass
+        self.close()
+
+    def to_feed(self):
+        """Закрывает видео и открывает ленту YouTube в окне."""
+        threading.Thread(target=lambda: MainApi().site("https://www.youtube.com"), daemon=True).start()
+        self.close()
+
     def close(self):
         try:
             P.close(self._window)
@@ -501,6 +517,12 @@ class PanelApi:
 
     def browser(self):
         self._ps.api.browser()
+
+    def to_menu(self):
+        self._ps.api.to_menu()
+
+    def to_feed(self):
+        self._ps.api.to_feed()
 
     def size(self, key):
         self._ps.api.size(key)
