@@ -7,12 +7,21 @@ mod data;
 mod geometry;
 mod net;
 mod panels;
+mod rawcookie;
 mod server;
 mod shim;
 mod state;
 mod winapi;
 
 fn main() {
+    // при аварии пишем причину в журнал (приложение собрано с panic=abort и иначе закрылось бы молча)
+    std::panic::set_hook(Box::new(|info| {
+        let _ = std::fs::create_dir_all(data::data_dir());
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(data::data_dir().join("crash.log")) {
+            use std::io::Write;
+            let _ = writeln!(f, "{} {}", data::now(), info);
+        }
+    }));
     let args: Vec<String> = std::env::args().collect();
     if let Some(i) = args.iter().position(|a| a == bypass::HELPER_FLAG) {
         // копия с правами администратора: управляет winws

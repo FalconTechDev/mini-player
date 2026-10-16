@@ -1,6 +1,6 @@
 //! Цикл событий и окна. Окна и WebView создаются только здесь (в главном потоке); остальные потоки шлют события через `state::send`.
 use crate::state::*;
-use crate::{api, data, geometry, panels, shim, winapi};
+use crate::{api, bypass, data, geometry, panels, shim, winapi};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use tao::dpi::LogicalSize;
@@ -224,6 +224,7 @@ pub fn run() {
                 Ev::Exit => *cf = ControlFlow::Exit,
                 Ev::Wake => {}
             },
+            Event::LoopDestroyed => bypass::stop(false),
             Event::WindowEvent { window_id, event, .. } => {
                 let Some(&id) = by_tao.get(&window_id) else { return };
                 match event {

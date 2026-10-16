@@ -81,7 +81,7 @@ flowchart LR
     P --- S["Settings window<br/>opacity · size · view modes"]
 ```
 
-The app is a Python program that hosts several [pywebview](https://pywebview.flowrl.com/) (Microsoft Edge **WebView2**)
+The app is a native **Rust** program ([wry](https://github.com/tauri-apps/wry) + [tao](https://github.com/tauri-apps/tao), Microsoft Edge **WebView2**) that hosts several
 windows. The player window shows only the video; the panels are separate frameless windows that follow it around
 and appear when the cursor reaches the edge. TikTok pages are cleaned with an injected script; accounts are stored as
 encrypted browser sessions so you can switch between them.
@@ -89,17 +89,13 @@ encrypted browser sessions so you can switch between them.
 ## Build from source
 
 ```powershell
-pip install -r requirements.txt
+pip install -r requirements.txt     # Python is used for the UI build and the installer
 
-# run directly
-python build_ui.py          # builds ui.html from the template and embeds the icons
-python miniplayer.py
-
-# or build the .exe and the installer
+# build the app and the installer (needs Rust: https://rustup.rs)
 .\build.ps1                 # -> dist\MiniPlayer\ (folder)  and  installer\dist\MiniPlayer_Setup.exe
 ```
 
-Requires Windows 10/11 and Python 3.12+.
+Requires Windows 10/11, Rust (stable) and Python 3.12+. Without Visual Studio Build Tools the GNU toolchain with gcc (e.g. WinLibs) is used. The previous Python version is still in the repository (`miniplayer.py`, `plat/`) and is what the Linux and macOS builds use.
 
 **Linux / macOS:**
 
@@ -116,7 +112,8 @@ Linux needs the usual Qt/xcb libraries (on Debian or Ubuntu: `libxcb-cursor0 lib
 
 | Path | What it is |
 |---|---|
-| `miniplayer.py` | The program: windows, JS API, panels, accounts, search |
+| `rs/` | The app (Rust): windows, JS bridge, panels, accounts, search, bypass mode |
+| `miniplayer.py`, `plat/` | The previous Python version (used for Linux and macOS builds) |
 | `ui_template.html` | The main window (single HTML/CSS/JS file); `build_ui.py` embeds icons and writes `ui.html` |
 | `player.html` | Player window page (YouTube IFrame API, Twitch chat, local files) |
 | `panel.html` | Panel pages: top, bottom (TikTok feeds) and settings |

@@ -79,25 +79,20 @@ flowchart LR
     P --- S["Окно настроек<br/>прозрачность · размер · режимы вида"]
 ```
 
-Приложение - программа на Python, которая открывает несколько окон [pywebview](https://pywebview.flowrl.com/)
-(Microsoft Edge **WebView2**). Окно плеера показывает только видео, а панели - отдельные окна без рамки: они следуют за
+Приложение - программа на **Rust** ([wry](https://github.com/tauri-apps/wry) + [tao](https://github.com/tauri-apps/tao), Microsoft Edge **WebView2**), которая открывает несколько окон. Окно плеера показывает только видео, а панели - отдельные окна без рамки: они следуют за
 плеером и появляются, когда курсор у края. Страницы TikTok очищаются внедряемым скриптом; аккаунты хранятся как
 зашифрованные сеансы браузера, поэтому между ними можно переключаться.
 
 ## Сборка из исходников
 
 ```powershell
-pip install -r requirements.txt
+pip install -r requirements.txt     # Python нужен для сборки интерфейса и установщика
 
-# запуск напрямую
-python build_ui.py          # собирает ui.html из шаблона и вшивает иконки
-python miniplayer.py
-
-# или собрать .exe и установщик
+# сборка приложения и установщика (нужен Rust: https://rustup.rs)
 .\build.ps1                 # -> dist\MiniPlayer\ (папка)  и  installer\dist\MiniPlayer_Setup.exe
 ```
 
-Нужны Windows 10/11 и Python 3.12+.
+Нужны Windows 10/11, Rust (stable) и Python 3.12+. Без Visual Studio Build Tools используется GNU-набор с gcc (например, WinLibs). Прежняя версия на Python осталась в репозитории (`miniplayer.py`, `plat/`): по ней собираются варианты для Linux и macOS.
 
 **Linux / macOS:**
 
@@ -114,7 +109,8 @@ bash scripts/build_unix.sh           # или сборка (tar.gz на Linux, .
 
 | Путь | Что это |
 |---|---|
-| `miniplayer.py` | Программа: окна, API для интерфейса, панели, аккаунты, поиск |
+| `rs/` | Приложение (Rust): окна, мост JS, панели, аккаунты, поиск, режим обхода |
+| `miniplayer.py`, `plat/` | Прежняя версия на Python (по ней собираются Linux и macOS) |
 | `ui_template.html` | Главное окно (один HTML/CSS/JS-файл); `build_ui.py` вшивает иконки и создаёт `ui.html` |
 | `player.html` | Страница окна плеера (YouTube IFrame API, чат Twitch, файлы) |
 | `panel.html` | Страницы панелей: верхняя, нижняя (ленты TikTok) и настройки |

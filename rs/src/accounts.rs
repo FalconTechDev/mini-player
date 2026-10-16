@@ -1,13 +1,12 @@
 //! Аккаунты платформ: состояние входа по cookie, до четырёх аккаунтов на платформу, переключение между ними.
 //! Сеансы (cookie) хранятся в accounts.bin, зашифрованные DPAPI Windows: расшифровать может только ваша учётная запись.
 use crate::state::*;
-use crate::{api, data};
+use crate::{api, data, rawcookie};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::channel;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
-use wry::cookie::{time::OffsetDateTime, Cookie, SameSite};
 
 struct Login {
     sites: &'static [&'static str],
@@ -71,32 +70,6 @@ fn main_win() -> Option<WinId> {
     app().main
 }
 
-fn to_row(c: &Cookie<'_>) -> Value {
-    let exp = c.expires_datetime().map(|t| t.format(&wry::cookie::time::format_description::well_known::Rfc3339).unwrap_or_default());
-    json!({"name": c.name(), "value": c.value(), "domain": c.domain().unwrap_or(""), "path": c.path().unwrap_or("/"),
-           "expires": exp, "http": c.http_only().unwrap_or(false), "secure": c.secure().unwrap_or(false),
-           "same": match c.same_site() { Some(SameSite::None) => 0, Some(SameSite::Strict) => 2, _ => 1 }})
-}
-
-fn from_row(r: &Value) -> Cookie<'static> {
-    let mut b = Cookie::build((r["name"].as_str().unwrap_or("").to_string(), r["value"].as_str().unwrap_or("").to_string()))
-        .domain(r["domain"].as_str().unwrap_or("").to_string())
-        .path(r["path"].as_str().unwrap_or("/").to_string())
-        .http_only(r["http"].as_bool().unwrap_or(false))
-        .secure(r["secure"].as_bool().unwrap_or(false))
-        .same_site(match r["same"].as_i64().unwrap_or(1) {
-            0 => SameSite::None,
-            2 => SameSite::Strict,
-            _ => SameSite::Lax,
-        });
-    if let Some(e) = r["expires"].as_str() {
-        if let Ok(t) = OffsetDateTime::parse(e, &wry::cookie::time::format_description::well_known::Rfc3339) {
-            b = b.expires(t);
-        }
-    }
-    b.build()
-}
-
 /// Cookie для сайтов; с delete=true удаляет их из профиля.
 pub fn cookies(sites: &[&str], delete: bool) -> Result<Vec<Value>, String> {
     let _g = COOKIE_LOCK.lock().map_err(|_| "cookie заняты")?;
@@ -108,13 +81,10 @@ pub fn cookies(sites: &[&str], delete: bool) -> Result<Vec<Value>, String> {
         f: Box::new(move |wv| {
             let mut rows: HashMap<(String, String, String), Value> = HashMap::new();
             for s in &sites {
-                if let Ok(list) = wv.cookies_for_url(s) {
-                    for c in list {
-                        let key = (c.name().to_string(), c.domain().unwrap_or("").to_string(), c.path().unwrap_or("").to_string());
-                        rows.insert(key, to_row(&c));
-                        if delete {
-                            let _ = wv.delete_cookie(&c);
-                        }
+                if let Ok(list) = rawcookie::read(wv, s, delete) {
+                    for r in list {
+                        let key = (r["name"].as_str().unwrap_or("").to_string(), r["domain"].as_str().unwrap_or("").to_string(), r["path"].as_str().unwrap_or("").to_string());
+                        rows.insert(key, r);
                     }
                 }
             }
@@ -126,18 +96,15 @@ pub fn cookies(sites: &[&str], delete: bool) -> Result<Vec<Value>, String> {
 
 fn restore(items: &[Value]) -> Result<(), String> {
     let win = main_win().ok_or("нет окна")?;
-    let (tx, rx) = channel::<()>();
+    let (tx, rx) = channel::<Result<(), String>>();
     let items: Vec<Value> = items.to_vec();
     send(Ev::With {
         win,
         f: Box::new(move |wv| {
-            for it in &items {
-                let _ = wv.set_cookie(&from_row(it));
-            }
-            let _ = tx.send(());
+            let _ = tx.send(rawcookie::write(wv, &items));
         }),
     });
-    rx.recv_timeout(Duration::from_secs(20)).map_err(|_| "cookie не записаны".to_string())
+    rx.recv_timeout(Duration::from_secs(20)).map_err(|_| "cookie не записаны".to_string())?
 }
 
 // ---------- шифрование DPAPI ----------

@@ -512,6 +512,10 @@ fn run() {
         cmd(json!({"strategy": null}));
         std::thread::sleep(Duration::from_millis(500));
     } else {
+        if std::env::var_os("MP_TEST_NO_UAC").is_some() {
+            set_state("denied", "тест: права не запрашиваются");
+            return;
+        }
         set_msg("Жду подтверждения прав администратора (UAC)…");
         if let Err(e) = prepare_files() {
             set_state("failed", &format!("Не найдены файлы обхода: {e}"));
