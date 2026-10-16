@@ -96,7 +96,7 @@ python build_ui.py          # builds ui.html from the template and embeds the ic
 python miniplayer.py
 
 # or build the .exe and the installer
-.\build.ps1                 # -> dist\MiniPlayer.exe  and  installer\dist\MiniPlayer_Setup.exe
+.\build.ps1                 # -> dist\MiniPlayer\ (folder)  and  installer\dist\MiniPlayer_Setup.exe
 ```
 
 Requires Windows 10/11 and Python 3.12+.

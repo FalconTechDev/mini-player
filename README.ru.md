@@ -94,7 +94,7 @@ python build_ui.py          # собирает ui.html из шаблона и в
 python miniplayer.py
 
 # или собрать .exe и установщик
-.\build.ps1                 # -> dist\MiniPlayer.exe  и  installer\dist\MiniPlayer_Setup.exe
+.\build.ps1                 # -> dist\MiniPlayer\ (папка)  и  installer\dist\MiniPlayer_Setup.exe
 ```
 
 Нужны Windows 10/11 и Python 3.12+.
