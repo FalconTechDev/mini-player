@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="strict-origin-when-cross-origin">
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#000;overflow:hidden;font-family:"Segoe UI",sans-serif;color:#f3ece0;user-select:none}
+:root{--fo:1;--vo:1}
+#win{position:fixed;inset:0;background:#000;display:flex}
+body.ah .hint{display:block}
+.hint{display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);width:96px;height:6px;background:var(--a);opacity:.6;border:2px solid #000;border-top:0;z-index:9;pointer-events:none}
+#frame{position:fixed;inset:0;border:3px solid #000;opacity:var(--fo);pointer-events:none;z-index:8}
+#stage{flex:1;min-width:0;display:flex;background:#000;position:relative}
+#v{flex:1;min-width:0;border:0;width:100%;height:100%;background:#000;opacity:var(--vo)}
+#chat{width:300px;flex:none;border:0;border-left:3px solid #000;background:#14110e;display:none}
+body.chat #chat{display:block}
+body.audio #v{visibility:hidden}
+#au{display:none;position:absolute;inset:0;place-items:center;color:#6b6252;font:900 13px "Segoe UI";letter-spacing:1px;pointer-events:none}
+body.audio #au{display:grid}
+.b{height:24px;padding:8px 14px;display:inline-grid;place-items:center;cursor:pointer;border:2px solid #000;box-shadow:2px 2px 0 #000;background:#ff4b3a;color:#000;font:900 12px "Segoe UI"}
+</style></head>
+<body style="--a:#ff4b3a">
+<div id="win"><div id="stage">__MEDIA__<div id="au">ТОЛЬКО ЗВУК</div></div><iframe id="chat" allow="autoplay"></iframe></div>
+<div id="frame"></div><div class="hint"></div>
+<script>
+// Панели управления (кнопки, настройки) находятся в отдельных окнах снаружи; здесь только плеер.
+const q=new URLSearchParams(location.search), $=id=>document.getElementById(id), api=()=>window.pywebview&&pywebview.api;
+const PLAT=q.get('platform')||'';
+document.body.style.setProperty('--a',{YouTube:'#ff4b3a',TikTok:'#35e8e0',Twitch:'#a98bff'}[PLAT]||'#4aa8ff');
+window.__mpUi=u=>{document.body.classList.toggle('ah',!u||u.autohide_bar!==false);const r=document.documentElement.style;if(u&&u.op_frame!==undefined)r.setProperty('--fo',u.op_frame);if(u&&u.op_video!==undefined)r.setProperty('--vo',u.op_video)};
+function ready(){api().ui_state().then(s=>window.__mpUi(s.ui))}
+if(api())ready();else window.addEventListener('pywebviewready',ready);
+// действия из панели: чат Twitch и «только звук»
+window.__mpAct=name=>{
+ if(name==='chat'){const on=!document.body.classList.contains('chat');document.body.classList.toggle('chat',on);
+   const ch=(/[?&]channel=(\w+)/.exec(q.get('src')||'')||[])[1];
+   if(on&&ch&&!$('chat').src)$('chat').src='https://www.twitch.tv/embed/'+ch+'/chat?parent=127.0.0.1&darkpopout'}
+ if(name==='audio')document.body.classList.toggle('audio');
+ return {chat:document.body.classList.contains('chat'),audio:document.body.classList.contains('audio')};
+};
+
+// ---- YouTube: обычный плеер через IFrame API + запоминание места остановки ----
+(function(){
+ const vid=q.get('vid'), start=+q.get('start')||0, list=q.get('list');
+ let P=null, lastSave=0;
+ const save=force=>{if(!P||!api()||!P.getCurrentTime)return;const n=Date.now();if(!force&&n-lastSave<5000)return;lastSave=n;
+   try{api().save_progress(P.getCurrentTime(),P.getDuration())}catch(e){}};
+ if(PLAT==='YouTube'&&vid){
+  const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s);
+  window.onYouTubeIframeAPIReady=()=>{
+   P=new YT.Player('v',{width:'100%',height:'100%',videoId:vid,
+    playerVars:Object.assign({autoplay:1,rel:0,start:start,origin:location.origin,playsinline:1},list?{list:list,listType:'playlist'}:{}),
+    events:{onStateChange:e=>{if(e.data===1){clearInterval(window.__pt);window.__pt=setInterval(()=>save(false),1000)}
+      else{clearInterval(window.__pt);if(e.data===2||e.data===0)save(true)}},
+     onError:e=>{const m=[101,150,153].includes(e.data)?'Автор запретил воспроизведение вне YouTube.':'Не удалось воспроизвести видео (код '+e.data+').';
+      document.getElementById('stage').insertAdjacentHTML('beforeend','<div style="position:absolute;inset:0;z-index:4;background:#14110e;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;text-align:center;padding:20px;font:700 14px Segoe UI">'+m+'<div class="b" onclick="pywebview.api.browser()">Открыть на YouTube ↗</div></div>')}}});
+  };
+  window.addEventListener('beforeunload',()=>save(true));
+ }
+ // локальные/прямые видеофайлы
+ const vv=document.querySelector('video#v');
+ if(vv){
+  vv.addEventListener('loadedmetadata',()=>{if(start>5&&start<vv.duration-10)vv.currentTime=start});
+  vv.loop=false;
+  vv.addEventListener('timeupdate',()=>{const n=Date.now();if(n-lastSave>5000&&api()){lastSave=n;try{api().save_progress(vv.currentTime,vv.duration)}catch(e){}}});
+  vv.addEventListener('pause',()=>{if(api())try{api().save_progress(vv.currentTime,vv.duration)}catch(e){}});
+ }
+})();
+</script></body></html>
