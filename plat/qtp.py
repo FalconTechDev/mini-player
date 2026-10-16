@@ -199,6 +199,12 @@ class QtPlatform:
                 n.resize(max(1, int(w) - dx), max(1, int(h) - dy))
         self.ui(f)
 
+    def virtual_screen(self):
+        def f():
+            g = QApplication.primaryScreen().virtualGeometry()
+            return g.x(), g.y(), g.width(), g.height()
+        return self.ui(f)
+
     def work_area(self, win, full=False):
         def f():
             wh = self._n(win).windowHandle()                    # у pywebview атрибут .screen перекрывает метод QWidget.screen()

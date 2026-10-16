@@ -122,6 +122,12 @@ class Win32Platform:
             flags |= SWP_NOSIZE
         self.u.SetWindowPos(self.hwnd(win), None, x or 0, y or 0, w or 0, h or 0, flags)
 
+    def virtual_screen(self):
+        """Все мониторы вместе в логических пикселях (как у pywebview): (x, y, ширина, высота)."""
+        k = self.scale()
+        g = self.u.GetSystemMetrics
+        return int(g(76) / k), int(g(77) / k), int(g(78) / k), int(g(79) / k)
+
     def work_area(self, win, full=False):
         """Прямоугольник монитора, на котором окно: (x, y, ширина, высота)."""
         mi = _MONITORINFO()

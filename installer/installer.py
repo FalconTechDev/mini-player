@@ -11,7 +11,7 @@ import urllib.request
 import winreg
 
 APP = "Mini Player"
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 # Что нового по версиям (показывается при обновлении: все версии новее установленной)
 CHANGES = [
     ("1.0.0", ["Первый выпуск: мини-плеер для YouTube, TikTok, Twitch, Vimeo, mp4 и любых сайтов",
@@ -29,6 +29,10 @@ CHANGES = [
                "Права администратора для обхода не запрашиваются повторно при перезапуске приложения",
                "Обход не затрагивает TikTok и Netflix",
                "Кнопка «Войти» на вкладке Netflix выглядит как у остальных платформ"]),
+    ("1.1.2", ["Запуск стал быстрее: окно появляется за секунду, в том числе при включённом обходе (раньше до 10 секунд)",
+               "Приложение больше не распаковывается при каждом запуске (обычная папка вместо одного файла)",
+               "Исправлено запоминание окон: после перезапуска они больше не открываются на весь экран, не уезжают за экран и не прыгают",
+               "Новый установщик заменяет файлы целиком, лишние остатки старой версии удаляются"]),
 ]
 EXE = "MiniPlayer.exe"
 UNINST_ID = os.environ.get("MP_INSTALL_KEY", "MiniPlayer")
@@ -176,13 +180,17 @@ def do_install(install_dir, desktop=True, startmenu=True, autostart=False, log=l
     wv_ok = webview2_installed() or install_webview2(log)
     step("Копирую файлы приложения…")
     os.makedirs(install_dir, exist_ok=True)
-    payload = res(os.path.join("payload", EXE))
-    with open(payload, "rb") as src, open(os.path.join(install_dir, EXE), "wb") as dst:
-        while True:
-            chunk = src.read(1 << 20)
-            if not chunk:
-                break
-            dst.write(chunk)
+    import shutil
+    import zipfile
+    for name in os.listdir(install_dir):                     # старые файлы убираем (кроме программы удаления), чтобы не оставались лишние
+        if name.lower() != "uninstall.exe":
+            p = os.path.join(install_dir, name)
+            try:
+                shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+            except OSError:
+                pass
+    with zipfile.ZipFile(res(os.path.join("payload", "app.zip"))) as z:
+        z.extractall(install_dir)
     step("Добавляю программу удаления…")
     uninstaller = os.path.join(install_dir, "uninstall.exe")
     if getattr(sys, "frozen", False):

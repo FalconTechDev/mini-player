@@ -800,12 +800,24 @@ def restore_geometry(key, w, h):
     d = load()
     g = d["windows"].get(key)
     kw = dict(width=w, height=h)
-    if d["settings"]["tiktok"]["remember_window"] and g:
-        if g.get("width", 0) >= 240 and g.get("height", 0) >= 240:
-            kw.update(width=g["width"], height=g["height"])
-        if -3000 < g.get("x", 99999) < 6000 and -3000 < g.get("y", 99999) < 6000:
-            kw.update(x=g["x"], y=g["y"])
+    if d["settings"]["tiktok"]["remember_window"] and g and geometry_ok(g):
+        kw.update(width=g["width"], height=g["height"], x=g["x"], y=g["y"])
     return kw
+
+
+def geometry_ok(g):
+    """Сохранённая геометрия годится, только если окно целиком обычное: не полный экран, не свёрнуто, видно на экране."""
+    try:
+        w, h, x, y = (int(g[k]) for k in ("width", "height", "x", "y"))
+        vx, vy, vw, vh = P.virtual_screen()
+    except Exception:
+        return False
+    if w < 240 or h < 240 or w > vw or h > vh:
+        return False
+    if w >= vw * 0.97 and h >= vh * 0.9:                      # так выглядит полноэкранное окно
+        return False
+    cx, cy = x + w // 2, y + 20                                # центр верхнего края должен быть на каком-то мониторе
+    return vx <= cx < vx + vw and vy <= cy < vy + vh
 
 
 def track_geometry(win, key):
@@ -823,10 +835,14 @@ def track_geometry(win, key):
         save(d)
 
     def moved(x, y):
+        if getattr(win, "_mp_fs", False) or int(x) < -1000 or int(y) < -1000:      # свёрнутое окно Windows уводит в (-32000, -32000)
+            return
         state.update(x=int(x), y=int(y))
         write()
 
     def resized(width, height):
+        if getattr(win, "_mp_fs", False) or int(width) < 240 or int(height) < 240:
+            return
         state.update(width=int(width), height=int(height))
         write()
 
@@ -1114,6 +1130,7 @@ class SiteApi:
 
 
 BYPASS_OBJ = []
+START_BYPASS = []
 
 
 def get_bypass():
@@ -1444,8 +1461,14 @@ if __name__ == "__main__":
         BYPASS = get_bypass()
         os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] += " " + BYPASS.browser_args()
         BYPASS.install_python_proxy()
-        BYPASS.launch()                                      # права администратора запрашиваются один раз и сохраняются при перезапуске
-        bypass.show_splash(BYPASS)
+        _bypass_started = []
+
+        def start_bypass():                                  # запускаем уже после появления окна: запрос прав и проверки не задерживают его открытие
+            if not _bypass_started:
+                _bypass_started.append(1)
+                BYPASS.launch()                              # права администратора запрашиваются один раз и сохраняются при перезапуске
+                bypass.show_splash(BYPASS)
+        START_BYPASS.append(start_bypass)
     main = webview.create_window("Mini Player", html=HTML, js_api=MainApi(), min_size=(640, 480),
                                  **restore_geometry("main", 760, 620))
     track_geometry(main, "main")
@@ -1458,6 +1481,8 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(DATA_DIR, "web"), exist_ok=True)
     main_win = webview.windows[0]
     failed = []
+    if START_BYPASS:
+        main_win.events.loaded += lambda: START_BYPASS[0]()
 
     def watchdog():
         # профиль браузера иногда ещё занят после прошлого запуска — тогда окно остаётся белым
