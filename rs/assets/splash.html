@@ -13,10 +13,10 @@ async function tick(){
  const busy=b.state==='starting'||b.state==='testing';
  if(busy&&Date.now()-t0<120000){document.getElementById('s').textContent=b.msg||'';return}
  const ok=b.state==='on'||b.state==='unneeded';
- document.getElementById('h').textContent=b.state==='on'?'Все проверки пройдены':b.state==='unneeded'?'Обход не нужен':'Не удалось включить обход';
+ document.getElementById('h').textContent=b.state==='on'?'Обход включён':b.state==='unneeded'?'Обход не нужен':'Не удалось включить обход';
  document.getElementById('s').textContent=(b.msg||'')+(ok?'':'\nПодробности: Настройки, Режим обхода блокировок');
  if(!doneAt)doneAt=Date.now();
- if(Date.now()-doneAt>(ok?2500:5000)){pywebview.api.splash_close()}
+ if(Date.now()-doneAt>(ok?1200:5000)){pywebview.api.splash_close()}
 }
 window.addEventListener('pywebviewready',()=>{tick();setInterval(tick,300)});
 </script></body></html>

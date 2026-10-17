@@ -543,6 +543,40 @@ fn run() {
             std::thread::sleep(Duration::from_millis(300));
         }
     }
+    // стратегия уже подобрана раньше: запускаем сразу, без проверок; проверка идёт в фоне и подбор начнётся заново, только если не работает
+    if let Some(i) = data::ui("bypass_strategy").as_u64().map(|v| v as usize).filter(|i| *i < STRATEGIES.len()) {
+        cmd(json!({"strategy": i}));
+        proxy().set_desync(true);
+        {
+            let mut s = st();
+            s.strategy = Some(i);
+            s.state = "on".into();
+            s.msg = format!("Обход включён: {}", STRATEGIES[i].0);
+        }
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(3));
+            if !st().want {
+                return;
+            }
+            let (sc, det) = score(proxy().port);
+            log(&format!("verify saved strategy {i}: {sc}/{} {det:?}", PROBE_HOSTS.len()));
+            if sc == 0 {
+                // возможно, это случайный сбой: ещё одна проверка, потом полный подбор
+                std::thread::sleep(Duration::from_secs(2));
+                let (sc2, _) = score(proxy().port);
+                if sc2 == 0 && st().want {
+                    {
+                        let mut s = st();
+                        s.busy = true;
+                    }
+                    cmd(json!({"strategy": null}));
+                    select(0);
+                    st().busy = false;
+                }
+            }
+        });
+        return;
+    }
     set_msg("Проверяю доступность сайтов…");
     let (base, det) = score(port);
     log(&format!("baseline {base}/{} {det:?}", PROBE_HOSTS.len()));
