@@ -12,9 +12,49 @@ pub fn set_proxy(url: Option<String>) {
     *PROXY.get_or_init(|| Mutex::new(None)).lock().unwrap() = url;
 }
 
+/// Системный прокси Windows (например, от VPN-клиента): как у браузера, чтобы запросы приложения шли тем же путём.
+fn system_proxy() -> Option<String> {
+    use std::process::Command;
+    use std::os::windows::process::CommandExt;
+    static CACHE: OnceLock<Option<String>> = OnceLock::new();
+    CACHE
+        .get_or_init(|| {
+            let q = |name: &str| -> Option<String> {
+                let out = Command::new("reg")
+                    .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings", "/v", name])
+                    .creation_flags(0x08000000)
+                    .output()
+                    .ok()?;
+                let text = String::from_utf8_lossy(&out.stdout).to_string();
+                text.lines().find(|l| l.trim_start().starts_with(name)).map(|l| l.split_whitespace().last().unwrap_or("").to_string())
+            };
+            if q("ProxyEnable")?.trim_start_matches("0x") == "0" {
+                return None;
+            }
+            let srv = q("ProxyServer")?;
+            if srv.is_empty() {
+                return None;
+            }
+            let pick = if srv.contains('=') {
+                srv.split(';').find_map(|p| p.strip_prefix("https=")).or_else(|| srv.split(';').find_map(|p| p.strip_prefix("http="))).unwrap_or("").to_string()
+            } else {
+                srv
+            };
+            if pick.is_empty() {
+                None
+            } else if pick.contains("://") {
+                Some(pick)
+            } else {
+                Some(format!("http://{pick}"))
+            }
+        })
+        .clone()
+}
+
 fn agent(timeout: u64) -> ureq::Agent {
     let mut b = ureq::AgentBuilder::new().timeout(Duration::from_secs(timeout)).user_agent(UA);
-    if let Some(p) = PROXY.get_or_init(|| Mutex::new(None)).lock().unwrap().clone() {
+    let p = PROXY.get_or_init(|| Mutex::new(None)).lock().unwrap().clone().or_else(system_proxy);
+    if let Some(p) = p {
         if let Ok(px) = ureq::Proxy::new(&p) {
             b = b.proxy(px);
         }
