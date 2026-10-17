@@ -138,6 +138,10 @@ pub fn open_player(info: &Value, geom: Option<[i32; 4]>) {
     sp.keepalive = true;
     sp.geom_key = Some(key.into());
     sp.panels = Some(("player".into(), platform, title));
+    let canon = info["canonical"].as_str().unwrap_or("").to_string();
+    if !claim(&format!("player:{canon}"), sp.id) {
+        return;
+    }
     app().players.insert(sp.id, Player { info: info.clone(), on_top, fs: false, saved: (0, 0, 0, 0), closed: false });
     send(Ev::Create(sp));
 }
@@ -166,6 +170,9 @@ pub fn open_tiktok(url: &str) {
     sp.geom_key = Some("tiktok".into());
     sp.on_load = OnLoad::Tiktok;
     sp.panels = Some(("tt".into(), "TikTok".into(), "TikTok".into()));
+    if !claim(&format!("tiktok:{url}"), sp.id) {
+        return;
+    }
     app().players.insert(sp.id, Player { info: json!({"vertical": true, "canonical": url}), on_top, fs: false, saved: (0, 0, 0, 0), closed: false });
     send(Ev::Create(sp));
 }
@@ -200,6 +207,9 @@ pub fn open_site(url: &str, vertical: bool) {
     sp.min = (300, 300);
     sp.geom_key = Some("site".into());
     sp.on_load = OnLoad::Site(kind.to_string());
+    if !claim(&format!("site:{url}"), sp.id) {
+        return;
+    }
     send(Ev::Create(sp));
 }
 
@@ -219,6 +229,7 @@ fn site_open_video(site: WinId, url: &str) {
 
 /// Вызывается, когда окно закрыто: убирает плеер и возвращает окна панелей, которые тоже нужно закрыть.
 pub fn on_window_closed(id: WinId) -> Vec<WinId> {
+    forget(id);
     let is_player = app().players.remove(&id).is_some();
     if is_player {
         return panels::destroy(id);
@@ -573,7 +584,7 @@ pub fn play(link: &str, mode: &str, resume: bool, geom: Option<[i32; 4]>) -> Val
         open_site(&format!("https://www.tiktok.com/{link}"), true);
         return json!({"ok": true, "state": data::load()});
     }
-    let mut info = net::parse(&link);
+    let mut info = net::parse_with(&link, false); // без обращения к сети: плеер открывается сразу
     if info.is_null() {
         return json!({"error": "Вставь ссылку"});
     }
@@ -596,7 +607,47 @@ pub fn play(link: &str, mode: &str, resume: bool, geom: Option<[i32; 4]>) -> Val
         d.clone()
     });
     open_player(&info, geom);
+    let info2 = info.clone();
+    std::thread::spawn(move || enrich_later(info2));
     json!({"ok": true, "state": d})
+}
+
+/// Название и автор подгружаются уже после открытия окна: обновляем историю и подпись панели.
+fn enrich_later(info: Value) {
+    let e = net::enrich(&info);
+    let title = e["title"].as_str().unwrap_or("").to_string();
+    if title.is_empty() {
+        return;
+    }
+    let canon = info["canonical"].as_str().unwrap_or("").to_string();
+    data::update(|d| {
+        if let Some(h) = d["history"].as_array_mut().and_then(|h| h.iter_mut().find(|h| h["url"] == canon)) {
+            h["title"] = json!(title);
+            if info["platform"] == "TikTok" {
+                if let Some(t) = e["thumb"].as_str().filter(|t| !t.is_empty()) {
+                    h["thumb"] = json!(t);
+                }
+            }
+        }
+    });
+    let mut to_refresh = vec![];
+    {
+        let mut a = app();
+        let player = a.players.iter().find(|(_, p)| p.info["canonical"] == canon.as_str()).map(|(id, _)| *id);
+        if let Some(pid) = player {
+            if let Some(p) = a.players.get_mut(&pid) {
+                p.info["title"] = json!(title);
+            }
+            if let Some(ps) = a.panels.iter_mut().find(|p| p.player == pid) {
+                ps.title = title.clone();
+                to_refresh.extend(ps.wins.values().copied());
+            }
+        }
+    }
+    for w in to_refresh {
+        eval(w, "window.__mpRefresh&&window.__mpRefresh()");
+    }
+    notify_main();
 }
 
 fn netflix(link: &str) -> Value {
@@ -637,6 +688,33 @@ fn history_toggle(url: &str, key: &str) -> Value {
 }
 
 static TT_SEARCH: Mutex<()> = Mutex::new(());
+static OPEN: Mutex<Vec<(String, WinId, std::time::Instant)>> = Mutex::new(Vec::new());
+
+/// Одно окно на одну ссылку: повторный клик поднимает открытое окно вместо нового. -> true, если окно нужно создать.
+fn claim(key: &str, id: WinId) -> bool {
+    let mut o = OPEN.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((_, ex, t)) = o.iter().find(|(k, _, _)| k == key).cloned() {
+        let hw = hwnd_of(ex);
+        if let Some(h) = hw.filter(|h| winapi::is_alive(*h)) {
+            drop(o);
+            let pinned = app().players.get(&ex).map(|p| p.on_top).unwrap_or(false);
+            winapi::restore(h);
+            winapi::topmost(h, true);
+            winapi::topmost(h, pinned);
+            return false;
+        }
+        if hw.is_none() && t.elapsed() < std::time::Duration::from_secs(8) {
+            return false; // окно ещё создаётся: повторный клик ничего не открывает
+        }
+    }
+    o.retain(|(k, _, _)| k != key);
+    o.push((key.to_string(), id, std::time::Instant::now()));
+    true
+}
+
+fn forget(id: WinId) {
+    OPEN.lock().unwrap_or_else(|e| e.into_inner()).retain(|(_, w, _)| *w != id);
+}
 
 const TT_SEARCH_JS: &str = r#"JSON.stringify((()=>{const seen=new Set(),out=[];
  for(const a of document.querySelectorAll('a[href*="/video/"]')){const h=a.href.split('?')[0];if(seen.has(h))continue;seen.add(h);

@@ -46,8 +46,25 @@ fn s<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(|x| x.as_str()).unwrap_or("")
 }
 
-/// Разбор ссылки -> {platform, kind, src, vertical, canonical, title, ...} или null.
+/// Разбор ссылки с названием и автором (запрос oEmbed) -> {platform, kind, src, vertical, canonical, title, ...} или null.
 pub fn parse(link: &str) -> Value {
+    parse_with(link, true)
+}
+
+/// Название и автор по готовому описанию (YouTube, TikTok): запрашивается отдельно, чтобы плеер открывался мгновенно.
+pub fn enrich(info: &Value) -> Value {
+    let canon = s(info, "canonical");
+    let url = match s(info, "platform") {
+        "YouTube" => format!("https://www.youtube.com/oembed?format=json&url={}", urlencoding::encode(canon)),
+        "TikTok" => format!("https://www.tiktok.com/oembed?url={}", urlencoding::encode(canon)),
+        _ => return json!({}),
+    };
+    let oe = fetch_json(&url);
+    json!({"title": s(&oe, "title"), "channel": s(&oe, "author_name"), "thumb": s(&oe, "thumbnail_url")})
+}
+
+/// Разбор ссылки; fetch=false не обращается к сети за названием (короткие ссылки TikTok всё равно раскрываются).
+pub fn parse_with(link: &str, fetch: bool) -> Value {
     let mut link = link.trim().to_string();
     if link.is_empty() {
         return Value::Null;
@@ -71,7 +88,7 @@ pub fn parse(link: &str) -> Value {
                 src += &format!("&list={p}");
             }
             let canon = format!("https://www.youtube.com/watch?v={vid}");
-            let oe = fetch_json(&format!("https://www.youtube.com/oembed?format=json&url={}", urlencoding::encode(&canon)));
+            let oe = if fetch { fetch_json(&format!("https://www.youtube.com/oembed?format=json&url={}", urlencoding::encode(&canon))) } else { json!({}) };
             let title = if s(&oe, "title").is_empty() { canon.clone() } else { s(&oe, "title").to_string() };
             return json!({"platform": "YouTube", "kind": "iframe", "src": src, "vertical": link.contains("/shorts/"), "vid": vid,
                 "start": t.and_then(|x| x.parse::<i64>().ok()).unwrap_or(0), "list": pl.unwrap_or_default(),
@@ -87,7 +104,7 @@ pub fn parse(link: &str) -> Value {
         }
         if let Some(m) = Regex::new(r"/video/(\d+)").unwrap().captures(&link) {
             let clean = link.split('?').next().unwrap_or("").to_string();
-            let oe = fetch_json(&format!("https://www.tiktok.com/oembed?url={}", urlencoding::encode(&clean)));
+            let oe = if fetch { fetch_json(&format!("https://www.tiktok.com/oembed?url={}", urlencoding::encode(&clean))) } else { json!({}) };
             let title = if s(&oe, "title").is_empty() { clean.clone() } else { s(&oe, "title").to_string() };
             return json!({"platform": "TikTok", "kind": "iframe",
                 "src": format!("https://www.tiktok.com/player/v1/{}?autoplay=1&loop=1&rel=0", &m[1]),
