@@ -49,8 +49,8 @@ window.__mpAct=name=>{
     playerVars:Object.assign({autoplay:1,rel:0,start:start,origin:location.origin,playsinline:1},list?{list:list,listType:'playlist'}:{}),
     events:{onStateChange:e=>{if(e.data===1){clearInterval(window.__pt);window.__pt=setInterval(()=>save(false),1000)}
       else{clearInterval(window.__pt);if(e.data===2||e.data===0)save(true)}},
-     onError:e=>{const m=[101,150,153].includes(e.data)?'Автор запретил воспроизведение вне YouTube.':'Не удалось воспроизвести видео (код '+e.data+').';
-      document.getElementById('stage').insertAdjacentHTML('beforeend','<div style="position:absolute;inset:0;z-index:4;background:#14110e;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;text-align:center;padding:20px;font:700 14px Segoe UI">'+m+'<div class="b" onclick="pywebview.api.browser()">Открыть на YouTube ↗</div></div>')}}});
+     onError:e=>{const m=([101,150,153].includes(e.data)?'Автор запретил встраивание этого видео':'Не удалось воспроизвести видео')+' (код '+e.data+').';
+      document.getElementById('stage').insertAdjacentHTML('beforeend','<div style="position:absolute;inset:0;z-index:4;background:#14110e;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;text-align:center;padding:20px;font:700 14px Segoe UI">'+m+'<div class="b" onclick="pywebview.api.watch_here()">Смотреть в этом окне</div><div class="b" onclick="pywebview.api.browser()">Открыть на YouTube ↗</div></div>')}}});
   };
   window.addEventListener('beforeunload',()=>save(true));
  }

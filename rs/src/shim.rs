@@ -37,3 +37,14 @@ pub fn intercept_js(kind: &str) -> String {
 }})();"#
     )
 }
+
+/// Страница просмотра YouTube внутри окна плеера: остаётся только видео (запасной путь для роликов с запретом встраивания).
+pub const WATCH_ONLY_JS: &str = r#"(()=>{if(window.__mpW)return;window.__mpW=1;
+ const st=document.createElement('style');
+ st.textContent='ytd-masthead,#masthead-container,#secondary,#below,#comments,#related,ytd-watch-metadata,tp-yt-app-drawer,#guide,ytd-mini-guide-renderer{display:none!important}'+
+ 'html,body,ytd-app{background:#000!important;overflow:hidden!important}#page-manager{margin:0!important}'+
+ 'ytd-watch-flexy #primary,ytd-watch-flexy #primary-inner{padding:0!important;margin:0!important;max-width:none!important}'+
+ '#player,#player-container-outer,#player-container-inner,#movie_player,.html5-video-container,video{position:fixed!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;max-height:none!important;z-index:9999!important}'+
+ 'video{object-fit:contain!important}';
+ document.documentElement.appendChild(st);
+})();"#;

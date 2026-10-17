@@ -137,6 +137,7 @@ pub fn open_player(info: &Value, geom: Option<[i32; 4]>) {
     sp.opacity = d["settings"]["ui"]["opacity"].as_f64();
     sp.keepalive = true;
     sp.geom_key = Some(key.into());
+    sp.on_load = OnLoad::Player;
     sp.panels = Some(("player".into(), platform, title));
     let canon = info["canonical"].as_str().unwrap_or("").to_string();
     if !claim(&format!("player:{canon}"), sp.id) {
@@ -422,6 +423,14 @@ fn player_api(id: WinId, name: &str, a: &[Value]) -> Result<Value, String> {
         }
         "close" | "close_button" => {
             p_close_button(id);
+            Value::Null
+        }
+        "watch_here" => {
+            // видео запрещено встраивать: открываем обычную страницу просмотра в этом же окне (только видео)
+            let vid = app().players.get(&id).and_then(|p| p.info["vid"].as_str().map(|s| s.to_string())).unwrap_or_default();
+            if !vid.is_empty() {
+                eval(id, &format!("location.href='https://www.youtube.com/watch?v={vid}'"));
+            }
             Value::Null
         }
         "to_menu" => {

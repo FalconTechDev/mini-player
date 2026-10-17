@@ -113,13 +113,18 @@ fn create(target: &EventLoopWindowTarget<Ev>, ctx: &mut WebContext, spec: Spec) 
             });
             NewWindowResponse::Deny
         })
-        .with_on_page_load_handler(move |ev, _url| {
+        .with_on_page_load_handler(move |ev, url| {
             if !matches!(ev, PageLoadEvent::Finished) {
                 return;
             }
             match &on_load {
                 OnLoad::Tiktok => eval(id, &api::tiktok_js()),
                 OnLoad::Site(kind) => eval(id, &shim::intercept_js(kind)),
+                OnLoad::Player => {
+                    if url.contains("youtube.com/watch") {
+                        eval(id, shim::WATCH_ONLY_JS);
+                    }
+                }
                 OnLoad::None => {}
             }
         });

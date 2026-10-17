@@ -27,6 +27,7 @@ pub enum Role {
 pub enum OnLoad {
     None,
     Tiktok,
+    Player,
     Site(String),
 }
 
