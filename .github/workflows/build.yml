@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  PYTHONUTF8: '1'
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -29,6 +32,7 @@ jobs:
     env:
       QTWEBENGINE_CHROMIUM_FLAGS: "--disable-gpu --no-sandbox"
       QTWEBENGINE_DISABLE_SANDBOX: "1"
+      QT_DEBUG_PLUGINS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,7 +43,7 @@ jobs:
           sudo apt-get install -y xvfb openbox libegl1 libgl1 libglib2.0-0 libdbus-1-3 libxkbcommon-x11-0 \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 \
             libxcb-cursor0 libnss3 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libasound2 libxkbfile1 libfontconfig1 \
-            libxi6 libxshmfence1 libfuse2
+            libxi6 libxshmfence1 libfuse2 libxcb-shape0 libxcb-xfixes0 libxcb-sync1 libxcb-xinput0 libxcb-util1 libx11-xcb1 libxkbcommon0
       - run: pip install -r requirements-qt.txt
       - run: python build_ui.py
       - name: Smoke test (Xvfb + Openbox)
