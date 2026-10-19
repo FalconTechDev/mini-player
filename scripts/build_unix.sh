@@ -9,7 +9,7 @@ COMMON=(--noconfirm --clean --name MiniPlayer
         --add-data "icons:icons" --collect-all webview --collect-submodules keyring
         --hidden-import webview.platforms.qt --hidden-import qtpy)
 if [[ "$(uname)" == "Darwin" ]]; then
-  python -m PyInstaller "${COMMON[@]}" --windowed --icon icons/app.icns --osx-bundle-identifier io.github.hwbss.miniplayer miniplayer.py
+  python -m PyInstaller "${COMMON[@]}" --windowed --icon icons/app.icns --osx-bundle-identifier io.github.falcontechdev.miniplayer miniplayer.py
   codesign --force --deep -s - dist/MiniPlayer.app || true      # подпись ad-hoc: без неё приложения Apple Silicon не запускаются
 else
   python -m PyInstaller "${COMMON[@]}" --icon icons/app.png miniplayer.py
