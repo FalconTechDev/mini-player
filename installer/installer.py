@@ -1,6 +1,7 @@
 """Установщик Mini Player: ставит приложение, ярлыки, запись об удалении и (при необходимости) среду WebView2.
 Запуск без параметров — окно установки. Параметры: --silent (без окон), --dir <папка>, --no-desktop, --no-startmenu,
 --autostart, --no-launch, --uninstall [--remove-data]."""
+import json
 import os
 import subprocess
 import sys
@@ -11,7 +12,7 @@ import urllib.request
 import winreg
 
 APP = "Mini Player"
-VERSION = "2.0.1"
+VERSION = "2.1.0"
 # Что нового по версиям (показывается при обновлении: все версии новее установленной)
 CHANGES = [
     ("1.0.0", ["Первый выпуск: мини-плеер для YouTube, TikTok, Twitch, Vimeo, mp4 и любых сайтов",
@@ -38,6 +39,8 @@ CHANGES = [
                "Панели, окна и запоминание позиции переписаны: окна больше не открываются на весь экран и не прыгают",
                "Режим обхода, вкладка Netflix, поиск и аккаунты работают как раньше"]),
     ("2.0.1", ["Новая иконка приложения: в окне, на панели задач, в установщике и ярлыках"]),
+    ("2.1.0", ["Автообновление с GitHub: пункт в настройках и галочка в установщике, кнопка «Проверить» и «Обновить»",
+               "После установки сбрасывается кеш иконок Windows, и новая иконка в ярлыках появляется сразу"]),
 ]
 EXE = "MiniPlayer.exe"
 UNINST_ID = os.environ.get("MP_INSTALL_KEY", "MiniPlayer")
@@ -100,6 +103,44 @@ def install_webview2(log):
         return webview2_installed()
     except Exception:
         return False
+
+
+def read_autoupdate():
+    """Текущее значение настройки приложения «автообновление» (None, если ещё не задано)."""
+    try:
+        with open(os.path.join(DATA_DIR, "data.json"), encoding="utf-8") as f:
+            return json.load(f).get("settings", {}).get("ui", {}).get("auto_update")
+    except (OSError, ValueError):
+        return None
+
+
+def write_autoupdate(value):
+    """Записывает настройку в data.json приложения, остальное содержимое не трогает."""
+    path = os.path.join(DATA_DIR, "data.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        if not isinstance(d, dict):
+            d = {}
+    except (OSError, ValueError):
+        d = {}
+    d.setdefault("settings", {}).setdefault("ui", {})["auto_update"] = bool(value)
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False)
+
+
+def refresh_icon_cache():
+    """Просит проводник перерисовать иконки: после обновления ярлыки сразу показывают новую."""
+    try:
+        import ctypes
+        ctypes.windll.shell32.SHChangeNotify(0x08000000, 0, None, None)     # SHCNE_ASSOCCHANGED
+    except Exception:
+        pass
+    try:
+        run(["ie4uinit.exe", "-show"], timeout=20)
+    except Exception:
+        pass
 
 
 def make_shortcuts(install_dir, desktop, startmenu):
@@ -169,7 +210,8 @@ def dir_size_kb(path):
     return total // 1024
 
 
-def do_install(install_dir, desktop=True, startmenu=True, autostart=False, log=lambda s: None, progress=lambda v: None):
+def do_install(install_dir, desktop=True, startmenu=True, autostart=False, log=lambda s: None, progress=lambda v: None,
+               autoupdate=None):
     steps = 7
     n = 0
 
@@ -203,6 +245,9 @@ def do_install(install_dir, desktop=True, startmenu=True, autostart=False, log=l
             dst.write(src.read())
     step("Создаю ярлыки…")
     make_shortcuts(install_dir, desktop, startmenu)
+    if autoupdate is not None and not os.environ.get("MP_INSTALL_KEY"):
+        write_autoupdate(autoupdate)
+    refresh_icon_cache()
     step("Регистрирую в «Установке и удалении программ»…")
     exe = os.path.join(install_dir, EXE)
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINST_KEY) as k:
@@ -258,7 +303,7 @@ def do_uninstall(remove_data=False, log=lambda s: None):
 
 def parse_args(argv):
     a = {"silent": False, "dir": DEFAULT_DIR, "desktop": True, "startmenu": True, "autostart": False,
-         "launch": True, "uninstall": False, "remove_data": False}
+         "launch": True, "uninstall": False, "remove_data": False, "autoupdate": None}
     i = 0
     while i < len(argv):
         t = argv[i].lower()
@@ -275,6 +320,10 @@ def parse_args(argv):
             a["autostart"] = True
         elif t == "--no-launch":
             a["launch"] = False
+        elif t == "--autoupdate":
+            a["autoupdate"] = True
+        elif t == "--no-autoupdate":
+            a["autoupdate"] = False
         elif t == "--uninstall":
             a["uninstall"] = True
         elif t == "--remove-data":
@@ -359,6 +408,8 @@ def gui(args):
     v_dir = tk.StringVar(value=args["dir"])
     v_desk, v_menu = tk.BooleanVar(value=args["desktop"]), tk.BooleanVar(value=args["startmenu"])
     v_auto, v_launch = tk.BooleanVar(value=args["autostart"]), tk.BooleanVar(value=True)
+    cur_au = read_autoupdate()
+    v_autoupd = tk.BooleanVar(value=True if cur_au is None else bool(cur_au))
     label("Добро пожаловать!", bold=True).pack(anchor="w")
     label("Установщик поставит всё нужное: приложение (Python не требуется), ярлыки, программу удаления и среду WebView2 "
           "от Microsoft, если её ещё нет в Windows.", DIM).pack(anchor="w", pady=(2, 10))
@@ -374,12 +425,13 @@ def gui(args):
             v_dir.set(os.path.join(p, APP))
     button(r1, "Обзор…", browse).pack(side="left", padx=(8, 0))
     for var, text in ((v_desk, "Ярлык на рабочем столе"), (v_menu, "Ярлык в меню «Пуск»"),
-                      (v_auto, "Запускать вместе с Windows"), (v_launch, "Запустить после установки")):
+                      (v_auto, "Запускать вместе с Windows"), (v_autoupd, "Обновлять приложение автоматически (с GitHub)"),
+                      (v_launch, "Запустить после установки")):
         check(text, var).pack(anchor="w")
     row = tk.Frame(body, bg=BG)
     row.pack(side="bottom", fill="x", pady=8)
 
-    def go(target=None, desk=None, menu=None, auto=None, launch=None, title="Устанавливаю…"):
+    def go(target=None, desk=None, menu=None, auto=None, launch=None, title="Устанавливаю…", keep_autoupdate=False):
         target = (target or v_dir.get()).strip()
         if not target:
             return
@@ -397,7 +449,8 @@ def gui(args):
             try:
                 wv_ok = do_install(target, desk, menu, auto,
                                    lambda m: root.after(0, lambda: status.set(m)),
-                                   lambda v: root.after(0, lambda: prog.configure(value=v)))
+                                   lambda v: root.after(0, lambda: prog.configure(value=v)),
+                                   autoupdate=None if keep_autoupdate else v_autoupd.get())
             except Exception as e:
                 root.after(0, lambda: (messagebox.showerror(APP, "Не удалось установить:\n%s" % e), root.destroy()))
                 return
@@ -444,7 +497,7 @@ def gui(args):
         r2.pack(side="bottom", fill="x", pady=8)
 
         def upd():
-            go(idir, shortcut_exists("Desktop"), shortcut_exists("Programs"), autostart_set(), True, "Обновляю до %s…" % VERSION)
+            go(idir, shortcut_exists("Desktop"), shortcut_exists("Programs"), autostart_set(), True, "Обновляю до %s…" % VERSION, keep_autoupdate=True)
         button(r2, "Переустановить" if (same or newer) else "Обновить", upd, not (same or newer)).pack(side="right")
         button(r2, "Закрыть", root.destroy).pack(side="right", padx=8)
     root.mainloop()
@@ -462,7 +515,8 @@ def main():
                     return
                 args["dir"] = inst[1]
                 args["desktop"], args["startmenu"], args["autostart"] = shortcut_exists("Desktop"), shortcut_exists("Programs"), autostart_set()
-            do_install(args["dir"], args["desktop"], args["startmenu"], args["autostart"])
+            au = args["autoupdate"] if args["autoupdate"] is not None else (True if not inst else None)
+            do_install(args["dir"], args["desktop"], args["startmenu"], args["autostart"], autoupdate=au)
             if args["launch"]:
                 subprocess.Popen([os.path.join(args["dir"], EXE)], cwd=args["dir"])
         return

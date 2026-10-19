@@ -310,6 +310,15 @@ function favScreen(){
  return `<div class="plate flat" style="background:#ffc83d">Избранное</div><div class="body" style="padding-top:16px">${f.length?cards(f,true):'<div class="empty">Пока пусто. Нажми «☆» у любого видео.</div>'}</div>`;
 }
 let BP=null;
+let UP=null;
+async function upRefresh(){if(!api)return;try{UP=Object.assign(UP||{},await api.update_status());if(scr==='set')render()}catch(e){}}
+function updateCard(row,ui){
+ const u=UP||{};
+ const msg=u.busy?'Проверяю…':u.error?u.error:u.available?('Доступна версия '+u.latest):(u.checked?'Установлена последняя версия':'');
+ return `<div class="scard p14" style="--ac:#b4b4ff"><div class="sh">ОБНОВЛЕНИЯ</div>
+  ${row('ui','auto_update','Автообновление с GitHub','Раз в сутки приложение смотрит новый выпуск на GitHub и ставит его само: закрывается, обновляется и запускается снова. Данные и настройки сохраняются.',!!ui.auto_update)}
+  <div class="srow" style="cursor:default"><div class="x"><b>Версия ${esc(u.current||'')}</b><small>${esc(msg)}</small></div>${u.available?`<div class="chip act" data-act="upinstall">Обновить до ${esc(u.latest)}</div>`:`<div class="chip act" data-act="upcheck">Проверить</div>`}</div></div>`;
+}
 const BPS={off:'',starting:'Запускаю…',testing:'Подбираю стратегию…',on:'Работает',unneeded:'Не нужен',failed:'Не удалось',denied:'Нет прав'};
 function bypassCard(){
  if(!BP||!BP.supported)return '';
@@ -321,7 +330,7 @@ function bypassCard(){
   <div class="note">Нужны права администратора: запрос Windows появляется один раз за запуск приложения. Если обход не помогает, возможно, дело в блокировке по IP или DNS: такое режим не обходит.</div></div>`;
 }
 async function bpRefresh(){if(!api)return;try{const b=await api.bypass_info();const ch=!BP||b.state!==BP.state||b.msg!==BP.msg||b.on!==BP.on;BP=b;if(ch&&scr==='set')render()}catch(e){}}
-setInterval(()=>{if(scr==='set')bpRefresh()},1500);
+setInterval(()=>{if(scr==='set'){bpRefresh();if(!UP)upRefresh()}},1500);
 function setScreen(){
  const ui=S.settings.ui,L=ui.layout||'tabs',tt=ttFlags(),pre=curPre(),st=S.settings;
  const opt=(v,t,d,mk)=>`<div class="opt ${L===v?'on':''}" data-act="layout" data-v="${v}"><div class="mk ${v==='tabs'?'c':''}"><i style="${v==='tabs'?'height:12px;border-bottom-width:3px':'width:14px;border-right-width:3px'}"></i></div><b>${t}</b><small>${d}</small></div>`;
@@ -336,6 +345,7 @@ function setScreen(){
  <div class="scard p14" style="--ac:#ff4b3a"><div class="sh" style="color:#ff4b3a">YOUTUBE</div>
   ${row('ui','yt_exit','Закрытие видео ведёт дальше','Вместо простого закрытия окна открывается лента YouTube или главное окно с поиском',!!ui.yt_exit,'#ff4b3a')}
   ${ui.yt_exit?`<div class="srow" style="cursor:default"><div class="x"><b>Куда переходить</b><small>После нажатия «закрыть» в окне видео</small></div>${seg([['feed','Лента'],['menu','Меню поиска']],ui.yt_exit_to||'feed','ytexit','#ff4b3a')}</div>`:''}</div>
+ ${updateCard(row,ui)}
  ${bypassCard()}
  <div class="scard p14" style="--ac:#35e8e0"><div class="sh" style="color:#35e8e0">TIKTOK — ВИД ВИДЕО</div>
   <div class="srow" style="cursor:default;padding-top:0"><div class="x"><b>Режим</b><small>Задаёт переключатели ниже сразу</small></div>${seg([['min','Минимум'],['mid','Средний'],['full','Полный']],pre,'ttpre','#35e8e0')}</div>
@@ -418,6 +428,8 @@ document.addEventListener('click',async e=>{
  else if(a==='ui'){S=await api.ui_setting(d.k,!S.settings.ui[d.k]);render()}
  else if(a==='bypass'){const on=!BP.on;BP=Object.assign({},BP,{on:on,state:on?'starting':'off',msg:on?'Запуск':''});render();api.bypass_set(on);setTimeout(bpRefresh,500)}
  else if(a==='bprt'){api.bypass_retest();setTimeout(bpRefresh,300)}
+ else if(a==='upcheck'){UP=Object.assign(UP||{},{busy:true,error:''});render();const r=await api.update_check();UP=Object.assign(UP||{},r,{busy:false,checked:true});render()}
+ else if(a==='upinstall'){UP=Object.assign(UP||{},{busy:true,error:''});render();try{await api.update_install(UP.url)}catch(e){UP=Object.assign(UP,{busy:false,error:String(e)});render()}}
  else if(a==='top'){S=await api.setting('on_top',!S.settings.on_top);render()}
  else if(a==='size'){S=await api.setting('size',d.v);render()}
  else if(a==='engine'){S=await api.ui_setting('engine',d.v);render()}

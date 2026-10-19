@@ -70,6 +70,14 @@ pub fn get_text(url: &str, timeout: u64, lang: bool) -> Option<String> {
     r.call().ok()?.into_string().ok()
 }
 
+/// Скачивает файл по адресу (с перенаправлениями) в `path`.
+pub fn download(url: &str, path: &std::path::Path, timeout: u64) -> Result<(), String> {
+    let resp = agent(timeout).get(url).call().map_err(|e| e.to_string())?;
+    let mut file = std::fs::File::create(path).map_err(|e| e.to_string())?;
+    std::io::copy(&mut resp.into_reader(), &mut file).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn fetch_json(url: &str) -> Value {
     get_text(url, 5, false).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(json!({}))
 }

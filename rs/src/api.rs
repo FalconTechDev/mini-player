@@ -790,6 +790,12 @@ fn bypass_info() -> Value {
 fn main_api(name: &str, a: &[Value]) -> Result<Value, String> {
     Ok(match name {
         "bypass_info" => bypass_info(),
+        "update_status" => crate::update::status(),
+        "update_check" => crate::update::check(),
+        "update_install" => match crate::update::install(&arg_s(a, 0)) {
+            Ok(()) => json!(true),
+            Err(e) => return Err(e),
+        },
         "bypass_set" => bypass::set(arg_b(a, 0)),
         "bypass_retest" => {
             bypass::retest();

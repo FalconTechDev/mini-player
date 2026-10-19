@@ -11,6 +11,7 @@ mod rawcookie;
 mod server;
 mod shim;
 mod state;
+mod update;
 mod winapi;
 
 fn main() {
@@ -58,6 +59,7 @@ fn main() {
             api::open_splash();
         });
     }
+    update::start_background();
     app::run();
     bypass::stop(false);
 }
