@@ -1,5 +1,9 @@
 <div align="center">
 
+<img src="docs/logo.png" alt="Mini Player" width="132">
+
+# Mini Player
+
 <img src="docs/banner.png" alt="Mini Player" width="100%">
 
 **Плавающие видео-окна для Windows, Linux и macOS - браузер не нужен.**

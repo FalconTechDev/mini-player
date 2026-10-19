@@ -1,5 +1,9 @@
 <div align="center">
 
+<img src="docs/logo.png" alt="Mini Player logo" width="132">
+
+# Mini Player
+
 <img src="docs/banner.png" alt="Mini Player" width="100%">
 
 **Floating video windows for Windows, Linux and macOS - no browser needed.**
